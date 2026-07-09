@@ -1,0 +1,5 @@
+# 排除 data 目录，避免编译产物等污染 GitHub Languages 统计
+data/** linguist-generated=true
+
+# 整个 build 编译产物目录（如被提交）
+build/** linguist-generated=true
