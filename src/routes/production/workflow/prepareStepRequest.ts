@@ -58,6 +58,12 @@ function getPromptStatus(state?: string | null, prompt?: string | null): ItemSta
   return "pending";
 }
 
+function isRunnableState(state: ItemState, compulsory: boolean, retryFailedOnly: boolean) {
+  if (state === "generating") return false;
+  if (retryFailedOnly) return state === "failed";
+  return compulsory || state === "pending" || state === "failed";
+}
+
 async function getProject(projectId: number) {
   return await u.db("o_project").where("id", projectId).select("id", "imageModel", "imageQuality", "videoModel", "mode").first();
 }
@@ -170,10 +176,23 @@ export default router.post(
     groupSize: z.number().int().min(1).optional(),
     otherTextPrompt: z.string().optional(),
     compulsory: z.boolean().optional(),
+    itemIds: z.array(z.number().int()).optional(),
+    retryFailedOnly: z.boolean().optional(),
     audio: z.boolean().optional(),
   }),
   async (req, res) => {
-    const { projectId, scriptId, step, concurrentCount = 5, groupSize = 5, otherTextPrompt = "", compulsory = false, audio = false } = req.body as {
+    const {
+      projectId,
+      scriptId,
+      step,
+      concurrentCount = 5,
+      groupSize = 5,
+      otherTextPrompt = "",
+      compulsory = false,
+      itemIds,
+      retryFailedOnly = false,
+      audio = false,
+    } = req.body as {
       projectId: number;
       scriptId?: number | null;
       step: WorkflowStep;
@@ -181,8 +200,13 @@ export default router.post(
       groupSize?: number;
       otherTextPrompt?: string;
       compulsory?: boolean;
+      itemIds?: number[];
+      retryFailedOnly?: boolean;
       audio?: boolean;
     };
+    const requestedItemIds = itemIds ? new Set(itemIds) : null;
+
+    if (compulsory && retryFailedOnly) return res.status(400).send(error("强制重生成和仅重试失败项不能同时启用"));
 
     try {
       const project = await getProject(projectId);
@@ -194,7 +218,7 @@ export default router.post(
 
       if (step === "extractOriginalAssets") {
         const runnableScriptIds = scripts
-          .filter((item) => item.extractState !== 1 && item.extractState !== 0 && item.extractState !== 2)
+          .filter((item) => retryFailedOnly ? item.extractState === -1 : item.extractState !== 1 && item.extractState !== 0 && item.extractState !== 2)
           .map((item) => item.id)
           .filter((id): id is number => !!id);
         return res.status(200).send(success({ step, targetApi, requestBody: { scriptIds: runnableScriptIds, projectId, groupSize }, total: runnableScriptIds.length }));
@@ -207,21 +231,23 @@ export default router.post(
       if (step === "generateDerivedAssets") {
         const realScriptId = scriptId ?? inferSingleScriptId(scripts, "项目包含多个剧本，生成衍生资产需要明确指定 scriptId");
         const scriptDerivedAssets = scriptId ? derivedAssets : await getAssets(projectId, realScriptId).then((items) => items.filter((item) => !!item.assetsId));
-        const runnable = compulsory || !scriptDerivedAssets.length ? 1 : 0;
+        const runnable = retryFailedOnly ? 0 : compulsory || !scriptDerivedAssets.length ? 1 : 0;
         return res.status(200).send(success({ step, targetApi, requestBody: { projectId, scriptId: realScriptId }, total: runnable }));
       }
 
       if (step === "polishOriginalAssetPrompts" || step === "polishDerivedAssetPrompts") {
         const list = step === "polishOriginalAssetPrompts" ? originalAssets : derivedAssets;
         const items = list
-          .filter((item) => ["pending", "failed"].includes(getPromptStatus(item.promptState, item.prompt)))
+          .filter((item) => !requestedItemIds || (item.id != null && requestedItemIds.has(item.id)))
+          .filter((item) => isRunnableState(getPromptStatus(item.promptState, item.prompt), compulsory, retryFailedOnly))
           .map((item) => ({ assetsId: item.id, type: item.type, name: item.name ?? "", describe: item.describe ?? "" }));
         return res.status(200).send(success({ step, targetApi, requestBody: { items, projectId, concurrentCount, otherTextPrompt }, total: items.length }));
       }
 
       if (step === "generateOriginalAssetImages") {
         const items = originalAssets
-          .filter((item) => item.prompt && getImageStatus(item.imageState) !== "generating" && (compulsory || getImageStatus(item.imageState) !== "success"))
+          .filter((item) => !requestedItemIds || (item.id != null && requestedItemIds.has(item.id)))
+          .filter((item) => item.prompt && isRunnableState(getImageStatus(item.imageState), compulsory, retryFailedOnly))
           .map((item) => ({ id: item.id, type: item.type, name: item.name ?? "", prompt: item.prompt ?? "", base64: null }));
         return res.status(200).send(
           success({
@@ -243,7 +269,8 @@ export default router.post(
         const realScriptId = scriptId ?? inferSingleScriptId(scripts, "项目包含多个剧本，生成衍生资产图需要明确指定 scriptId");
         const scriptAssets = scriptId ? derivedAssets : await getAssets(projectId, realScriptId).then((items) => items.filter((item) => !!item.assetsId));
         const assetIds = scriptAssets
-          .filter((item) => item.prompt && getImageStatus(item.imageState) !== "generating" && (compulsory || getImageStatus(item.imageState) !== "success"))
+          .filter((item) => !requestedItemIds || (item.id != null && requestedItemIds.has(item.id)))
+          .filter((item) => item.prompt && isRunnableState(getImageStatus(item.imageState), compulsory, retryFailedOnly))
           .map((item) => item.id)
           .filter((id): id is number => !!id);
         return res.status(200).send(success({ step, targetApi, requestBody: { assetIds, projectId, scriptId: realScriptId, concurrentCount }, total: assetIds.length }));
@@ -255,7 +282,8 @@ export default router.post(
         const realScriptId = scriptId ?? inferSingleScriptId(scripts, "项目包含多个剧本，生成分镜图需要明确指定 scriptId");
         const scriptStoryboards = scriptId ? storyboards : storyboards.filter((item) => item.scriptId === realScriptId);
         const storyboardIds = scriptStoryboards
-          .filter((item) => item.shouldGenerateImage !== 0 && getImageStatus(item.state) !== "generating" && (compulsory || getImageStatus(item.state) !== "success"))
+          .filter((item) => !requestedItemIds || (item.id != null && requestedItemIds.has(item.id)))
+          .filter((item) => item.shouldGenerateImage !== 0 && isRunnableState(getImageStatus(item.state), compulsory, retryFailedOnly))
           .map((item) => item.id)
           .filter((id): id is number => !!id);
         return res.status(200).send(success({ step, targetApi, requestBody: { storyboardIds, projectId, scriptId: realScriptId, concurrentCount, compulsory }, total: storyboardIds.length }));
@@ -266,14 +294,15 @@ export default router.post(
 
       if (step === "generateVideoPrompts") {
         const trackData = tracks
-          .filter((item) => ["pending", "failed"].includes(getPromptStatus(item.state, item.prompt)) && trackInfo[item.id!]?.some((source) => source.sources === "storyboard"))
+          .filter((item) => !requestedItemIds || (item.id != null && requestedItemIds.has(item.id)))
+          .filter((item) => isRunnableState(getPromptStatus(item.state, item.prompt), compulsory, retryFailedOnly) && trackInfo[item.id!]?.some((source) => source.sources === "storyboard"))
           .map((item) => ({ trackId: item.id, info: trackInfo[item.id!] }));
         return res.status(200).send(success({ step, targetApi, requestBody: { projectId, trackData, mode: project.mode ?? "", model: project.videoModel, concurrentCount }, total: trackData.length }));
       }
 
       if (step === "generateVideos") {
         const realScriptId = scriptId ?? inferSingleScriptId(scripts, "项目包含多个剧本，生成视频需要明确指定 scriptId");
-        const scriptTracks = tracks.filter((item) => item.scriptId === realScriptId);
+        const scriptTracks = tracks.filter((item) => item.scriptId === realScriptId && (!requestedItemIds || (item.id != null && requestedItemIds.has(item.id))));
         const trackIds = scriptTracks.map((item) => item.id!).filter(Boolean);
         const videos = trackIds.length
           ? await u.db("o_video").whereIn("videoTrackId", trackIds).select("id", "videoTrackId", "state", "time")
@@ -285,7 +314,7 @@ export default router.post(
                 .filter((video) => video.videoTrackId === track.id)
                 .sort((a, b) => Number(b.time ?? b.id ?? 0) - Number(a.time ?? a.id ?? 0));
               const representative = attempts.find((video) => video.id === track.selectVideoId) ?? attempts.find((video) => getImageStatus(video.state) === "success") ?? attempts[0];
-              return compulsory || ["pending", "failed"].includes(getImageStatus(representative?.state));
+              return isRunnableState(getImageStatus(representative?.state), compulsory, retryFailedOnly);
             })
             .map((track) => track.id),
         );

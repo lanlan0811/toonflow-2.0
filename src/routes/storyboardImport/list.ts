@@ -76,6 +76,13 @@ export default router.post(
       "o_image.errorReason as imageErrorReason",
       "o_image.filePath",
     );
+    const assetsWithSrc = await Promise.all(
+      projectAssets.map(async (item) => ({
+        ...item,
+        src: item.filePath ? await u.oss.getSmallImageUrl(item.filePath) : "",
+        originalSrc: item.filePath ? await u.oss.getFileUrl(item.filePath) : "",
+      })),
+    );
     const scripts = await u
       .db("o_script")
       .leftJoin("o_storyboard", function () {
@@ -109,7 +116,7 @@ export default router.post(
       success({
         data,
         total: Number(totalQuery?.total ?? 0),
-        assets: projectAssets,
+        assets: assetsWithSrc,
         scripts: scripts.map((item) => ({
           ...item,
           storyboardCount: Number(item.storyboardCount ?? 0),

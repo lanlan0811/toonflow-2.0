@@ -22,6 +22,7 @@
   let currentAssets = [];
   let selectedStoryboardIds = [];
   let editingStoryboard = null;
+  let editingAsset = null;
   let currentProjectId = null;
   let currentScriptId = null;
   let apiRoot = null;
@@ -119,6 +120,8 @@
     if ($('tf-sm-list')) $('tf-sm-list').innerHTML = '<div class="tf-sd-help" style="padding:10px">项目已变化，请重新加载分镜表</div>';
     if ($('tf-sm-assets')) $('tf-sm-assets').innerHTML = '<div class="tf-sd-help">项目已变化，请重新加载资产</div>';
     closeEditStoryboard();
+    closeEditAsset();
+    closeImagePreview();
     currentProjectId = nextProjectId || null;
     renderSteps(null);
     renderSteps(null, 'page');
@@ -361,12 +364,13 @@
     }catch(e){ setStatus(prefix+'-workflow-status',statusWithContext(e.message),'err'); }
   }
 
-  async function runStep(step, target){
+  async function runStep(step, target, options){
     const prefix = target === 'page' ? 'tf-sm' : 'tf-sd';
+    const opts = options || {};
+    const itemIds = Array.isArray(opts.itemIds) ? opts.itemIds.map(Number).filter(Boolean) : [];
     const runningKey = step;
     if (runningSteps[runningKey]) return;
     runningSteps[runningKey] = true;
-    renderSteps(progressByTarget.legacy || null);
     renderSteps(progressByTarget.page || null, 'page');
     try{
       const projectId = getProjectId();
@@ -374,8 +378,10 @@
       const sid = getScriptId(); if (sid) body.scriptId = sid;
       body.concurrentCount = Number(($(prefix+'-concurrent-count')||{}).value || 5);
       body.groupSize = Number(($(prefix+'-group-size')||{}).value || 5);
-      body.compulsory = !!(($(prefix+'-compulsory')||{}).checked);
+      body.compulsory = typeof opts.compulsory === 'boolean' ? opts.compulsory : !!(($(prefix+'-compulsory')||{}).checked);
       body.audio = !!(($(prefix+'-audio')||{}).checked);
+      body.retryFailedOnly = typeof opts.retryFailedOnly === 'boolean' ? opts.retryFailedOnly : !!(($(prefix+'-retry-failed-only')||{}).checked);
+      if (itemIds.length) body.itemIds = itemIds;
       setStatus(prefix+'-workflow-status',statusWithContext('正在执行：'+step+' ...'));
       const res = await post('/api/production/workflow/runStep', body);
       const info = res.data || {};
@@ -385,7 +391,6 @@
     }catch(e){ setStatus(prefix+'-workflow-status',statusWithContext(e.message),'err'); }
     finally {
       delete runningSteps[runningKey];
-      renderSteps(progressByTarget.legacy || null);
       renderSteps(progressByTarget.page || null, 'page');
     }
   }
@@ -423,7 +428,10 @@
     const body = rows.map(function(r,i){
       const shot = (r.videoDesc || '').match(/镜号[:：]\s*([^\n]+)/);
       const checked = selectedStoryboardIds.includes(r.id) ? 'checked' : '';
-      return '<tr><td><input type="checkbox" data-action="toggle-one" data-id="'+r.id+'" '+checked+'></td><td>'+escapeHtml(r.index || (shot && shot[1]) || i+1)+'</td><td>'+escapeHtml(r.videoDesc || r.prompt || '')+'</td><td>'+escapeHtml(r.duration || '')+'</td><td>'+escapeHtml(r.track || '')+'</td><td>'+escapeHtml(((r.assets||[]).map(function(a){return a.name;}).join('、')))+'</td><td><span class="tf-sd-chip '+(r.state==='生成失败'?'failed':r.state==='生成成功'||r.state==='已完成'?'success':'idle')+'">'+escapeHtml(r.state || '未生成')+'</span></td><td><button class="tf-sd-btn tf-sd-mini" data-action="edit" data-id="'+r.id+'">编辑</button><button class="tf-sd-btn tf-sd-mini warn" data-action="delete" data-id="'+r.id+'">删除</button></td></tr>';
+      const failed = r.state === '生成失败' || r.state === '失败';
+      const success = r.state === '生成成功' || r.state === '已完成';
+      const retryButton = failed ? '<button class="tf-sd-btn tf-sd-mini primary" data-action="retry-image" data-id="'+r.id+'">重试分镜图</button>' : '';
+      return '<tr><td><input type="checkbox" data-action="toggle-one" data-id="'+r.id+'" '+checked+'></td><td>'+escapeHtml(r.index || (shot && shot[1]) || i+1)+'</td><td>'+escapeHtml(r.videoDesc || r.prompt || '')+'</td><td>'+escapeHtml(r.duration || '')+'</td><td>'+escapeHtml(r.track || '')+'</td><td>'+escapeHtml(((r.assets||[]).map(function(a){return a.name;}).join('、')))+'</td><td><span class="tf-sd-chip '+(failed?'failed':success?'success':'idle')+'">'+escapeHtml(r.state || '未生成')+'</span></td><td><div class="tf-sm-row-actions"><button class="tf-sd-btn tf-sd-mini" data-action="edit" data-id="'+r.id+'">编辑</button>'+retryButton+'<button class="tf-sd-btn tf-sd-mini warn" data-action="delete" data-id="'+r.id+'">删除</button></div></td></tr>';
     }).join('');
     box.innerHTML = toolbar + head + body + '</tbody></table>';
     bindStoryboardListActions(box);
@@ -435,6 +443,7 @@
         const action = node.getAttribute('data-action');
         const id = Number(node.getAttribute('data-id'));
         if (action === 'edit') openEditStoryboard(id);
+        if (action === 'retry-image') runStep('generateStoryboardImages','page',{itemIds:[id]});
         if (action === 'delete') deleteStoryboards([id]);
         if (action === 'bulk-delete') deleteStoryboards(selectedStoryboardIds.slice());
       });
@@ -522,6 +531,10 @@
     }catch(e){ setStatus('tf-sm-edit-status', e.message, 'err'); }
   }
 
+  function isFailedState(state){ return state === '生成失败' || state === '失败' || state === 'failed'; }
+  function isGeneratingState(state){ return state === '生成中' || state === 'generating'; }
+  function isSuccessState(state){ return state === '已完成' || state === '生成成功' || state === 'success'; }
+
   function renderAssets(assets){
     const box = $('tf-sm-assets'); if(!box) return;
     if(!assets.length){ box.innerHTML = '<div class="tf-sd-empty">暂无资产，导入分镜表后会自动生成角色、场景、道具。</div>'; return; }
@@ -530,20 +543,95 @@
       if (!list.length) return '<div class="tf-sm-asset-group"><h4>'+sectionTitle+'</h4><div class="tf-sd-help">暂无数据</div></div>';
       const groups = list.reduce(function(result, asset){ const type = asset.type || 'other'; (result[type] = result[type] || []).push(asset); return result; }, {});
       return '<div class="tf-sm-asset-group"><h4>'+sectionTitle+'</h4>'+Object.keys(groups).map(function(type){
-        return '<div class="tf-sd-help" style="margin:8px 0 4px">'+escapeHtml(title[type] || type)+'</div><div class="tf-sm-assets-grid">'+groups[type].map(function(asset){
+        return '<div class="tf-sd-help tf-sm-asset-type">'+escapeHtml(title[type] || type)+'</div><div class="tf-sm-assets-grid">'+groups[type].map(function(asset){
           const promptState = asset.promptState || (asset.prompt ? '已完成' : '未生成');
-          const imageState = asset.imageState || (asset.imageId ? '生成中' : '未生成');
-          const errorReason = asset.promptErrorReason || asset.imageErrorReason || '';
-          return '<div class="tf-sm-asset-card"><div class="tf-sm-asset-title">'+escapeHtml(asset.name)+'</div><div class="tf-sm-asset-desc">'+escapeHtml(asset.describe || '')+'</div><div class="tf-sd-help">提示词：'+escapeHtml(promptState)+' · 图片：'+escapeHtml(imageState)+'</div>'+(errorReason?'<div class="tf-sd-status err">'+escapeHtml(errorReason)+'</div>':'')+'</div>';
+          const imageState = asset.imageState || (asset.src ? '已完成' : '未生成');
+          const promptFailed = isFailedState(promptState);
+          const imageFailed = isFailedState(imageState);
+          const promptGenerating = isGeneratingState(promptState);
+          const imageGenerating = isGeneratingState(imageState);
+          const promptSuccess = isSuccessState(promptState);
+          const imageSuccess = isSuccessState(imageState);
+          const src = String(asset.src || '').trim();
+          const image = src ? '<button class="tf-sm-asset-thumb" data-action="preview-asset" data-id="'+asset.id+'" title="点击查看大图"><img src="'+escapeHtml(src)+'" alt="'+escapeHtml(asset.name || '资产图片')+'" loading="lazy"></button>' : '<div class="tf-sm-asset-thumb placeholder"><span>暂无图片</span></div>';
+          const promptButtonText = promptGenerating ? '生成中' : promptFailed ? '重试提示词' : promptSuccess ? '重新生成提示词' : '生成提示词';
+          const imageButtonText = imageGenerating ? '生成中' : imageFailed ? '重试图片' : imageSuccess ? '重新生成图片' : '生成图片';
+          const imageDisabled = imageGenerating || !asset.prompt;
+          return '<div class="tf-sm-asset-card">'+image+'<div class="tf-sm-asset-content"><div class="tf-sm-asset-title">'+escapeHtml(asset.name)+'</div><div class="tf-sm-asset-label">描述</div><div class="tf-sm-asset-desc">'+escapeHtml(asset.describe || '暂无描述')+'</div><div class="tf-sm-asset-label">提示词</div><div class="tf-sm-asset-prompt">'+escapeHtml(asset.prompt || '暂无提示词')+'</div><div class="tf-sm-asset-states"><span>提示词：'+escapeHtml(promptState)+'</span><span>图片：'+escapeHtml(imageState)+'</span></div>'+(asset.promptErrorReason?'<div class="tf-sd-status err">提示词：'+escapeHtml(asset.promptErrorReason)+'</div>':'')+(asset.imageErrorReason?'<div class="tf-sd-status err">图片：'+escapeHtml(asset.imageErrorReason)+'</div>':'')+'<div class="tf-sm-asset-actions"><button class="tf-sd-btn tf-sd-mini" data-action="edit-asset" data-id="'+asset.id+'">编辑</button><button class="tf-sd-btn tf-sd-mini primary" data-action="asset-prompt" data-id="'+asset.id+'" '+(promptGenerating?'disabled':'')+'>'+promptButtonText+'</button><button class="tf-sd-btn tf-sd-mini primary" data-action="asset-image" data-id="'+asset.id+'" '+(imageDisabled?'disabled':'')+'>'+imageButtonText+'</button></div></div></div>';
         }).join('')+'</div>';
       }).join('')+'</div>';
     }
     box.innerHTML = renderSection('原始资产', assets.filter(function(asset){ return !asset.assetsId; })) + renderSection('衍生资产', assets.filter(function(asset){ return !!asset.assetsId; }));
+    box.querySelectorAll('[data-action]').forEach(function(node){
+      node.addEventListener('click', function(){
+        const asset = currentAssets.find(function(item){ return item.id === Number(node.getAttribute('data-id')); });
+        if (!asset) return;
+        const action = node.getAttribute('data-action');
+        if (action === 'preview-asset') openImagePreview(asset.originalSrc || asset.src, asset.name);
+        if (action === 'edit-asset') openEditAsset(asset.id);
+        if (action === 'asset-prompt') runAssetStep(asset, 'prompt');
+        if (action === 'asset-image') runAssetStep(asset, 'image');
+      });
+    });
   }
 
-  function toggleAutoRefresh(on){
-    if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
-    if (on) progressTimer = setInterval(function(){ refreshProgress(isStoryboardRoute() ? 'page' : undefined).catch(function(){}); }, 5000);
+  function runAssetStep(asset, kind){
+    const derived = !!asset.assetsId;
+    const step = kind === 'prompt' ? (derived ? 'polishDerivedAssetPrompts' : 'polishOriginalAssetPrompts') : (derived ? 'generateDerivedAssetImages' : 'generateOriginalAssetImages');
+    const state = kind === 'prompt' ? (asset.promptState || (asset.prompt ? '已完成' : '未生成')) : (asset.imageState || (asset.src ? '已完成' : '未生成'));
+    runStep(step, 'page', {itemIds:[asset.id], retryFailedOnly:isFailedState(state), compulsory:isSuccessState(state)});
+  }
+
+  function openEditAsset(id){
+    editingAsset = currentAssets.find(function(asset){ return asset.id === id; }) || null;
+    const dialog = $('tf-sm-asset-edit-dialog');
+    if (!editingAsset || !dialog) return;
+    $('tf-sm-asset-edit-describe').value = editingAsset.describe || '';
+    $('tf-sm-asset-edit-prompt').value = editingAsset.prompt || '';
+    setStatus('tf-sm-asset-edit-status','');
+    dialog.classList.add('open');
+  }
+
+  function closeEditAsset(){
+    editingAsset = null;
+    const dialog = $('tf-sm-asset-edit-dialog');
+    if (dialog) dialog.classList.remove('open');
+  }
+
+  async function saveAssetEdit(){
+    try{
+      if (!editingAsset) throw new Error('没有正在编辑的资产');
+      const projectId = getProjectId();
+      const scriptId = getScriptId();
+      if (!scriptId) throw new Error('请先选择当前分镜表批次');
+      await post('/api/storyboardImport/updateAsset', {
+        projectId,
+        scriptId,
+        id: editingAsset.id,
+        describe: $('tf-sm-asset-edit-describe').value.trim(),
+        prompt: $('tf-sm-asset-edit-prompt').value.trim()
+      });
+      closeEditAsset();
+      await refreshStoryboardList();
+      await refreshProgress('page');
+    }catch(e){ setStatus('tf-sm-asset-edit-status',e.message,'err'); }
+  }
+
+  function openImagePreview(src, title){
+    if (!src) return;
+    const dialog = $('tf-sm-image-preview');
+    if (!dialog) return;
+    $('tf-sm-image-preview-img').src = src;
+    $('tf-sm-image-preview-img').alt = title || '资产大图';
+    $('tf-sm-image-preview-title').textContent = title || '图片预览';
+    dialog.classList.add('open');
+  }
+
+  function closeImagePreview(){
+    const dialog = $('tf-sm-image-preview');
+    if (dialog) dialog.classList.remove('open');
+    const image = $('tf-sm-image-preview-img');
+    if (image) image.removeAttribute('src');
   }
 
   function startNewStoryboardImport(){
@@ -566,40 +654,6 @@
     else if (type === 'select') input = el('select',{id:id},(options||[]).map(function(v){return el('option',{value:v,text:v});}));
     else input = el('input',{id:id,placeholder:placeholder||'',value:placeholder && /^\d+$/.test(placeholder) ? placeholder : ''});
     return el('div',{class:'tf-sd-field'},[el('label',{text:label}), input]);
-  }
-
-  function buildLegacyUI(){
-    const root = el('div',{id:'tf-secondary-dev-root'},[
-      el('div',{class:'tf-sd-panel',id:'tf-sd-panel'},[
-        el('div',{class:'tf-sd-header'},[
-          el('div',{},[el('div',{class:'tf-sd-title',text:'分镜表管理'}), el('div',{class:'tf-sd-sub',text:'分镜表导入 · 原始资产 · 生产流程'})]),
-          el('button',{class:'tf-sd-close',text:'×',title:'关闭',on:{click:function(){ $('tf-sd-panel').classList.remove('open'); }}})
-        ]),
-        el('div',{class:'tf-sd-body'},[
-          el('div',{class:'tf-sd-grid'},[
-            field('项目ID projectId','input','tf-sd-project-id','必填'),
-            field('内部剧本ID scriptId','input','tf-sd-script-id','可选'),
-            field('分镜表名称','input','tf-sd-script-name','分镜表导入')
-          ]),
-          el('div',{class:'tf-sd-row'},[
-            el('button',{class:'tf-sd-btn',text:'自动识别ID',on:{click:guessIds}}),
-            el('button',{class:'tf-sd-btn primary',text:'刷新流程状态',on:{click:function(){ refreshProgress(); }}}),
-            el('button',{class:'tf-sd-btn',text:'打开分镜表管理页',on:{click:function(){ const id=getProjectId(); location.hash='/storyboard-table?projectId='+id+(getScriptId()?'&scriptId='+getScriptId():''); renderStoryboardPage(); }}}),
-            el('label',{class:'tf-sd-help'},[el('input',{type:'checkbox',id:'tf-sd-auto-refresh'}),' 自动每 5 秒刷新'])
-          ]),
-          el('div',{id:'tf-sd-context',class:'tf-sd-status',text:contextText()}),
-          buildImportSection('tf-sd', false),
-          buildWorkflowSection('tf-sd')
-        ])
-      ]),
-      el('button',{class:'tf-sd-fab',text:'分镜表管理',on:{click:function(){ const p=$('tf-sd-panel'); p.classList.toggle('open'); if(p.classList.contains('open')) { guessIds(); loadConfig(); } }}})
-    ]);
-    document.body.appendChild(root);
-    $('tf-sd-auto-refresh').addEventListener('change', function(e){ toggleAutoRefresh(e.target.checked); });
-    bindContextFields('tf-sd');
-    $('tf-sd-compulsory').addEventListener('change', function(){ renderSteps(progressByTarget.legacy || null); });
-    renderSteps(null);
-    guessIds();
   }
 
   function buildImportSection(prefix, withFile){
@@ -629,7 +683,7 @@
       el('div',{class:'tf-sd-grid'},[
         field('并发数','input',prefix+'-concurrent-count','5'),
         field('分组大小','input',prefix+'-group-size','5'),
-        el('div',{class:'tf-sd-field'},[el('label',{text:'选项'}),el('label',{class:'tf-sd-help'},[el('input',{type:'checkbox',id:prefix+'-compulsory'}),' 强制重生成']),el('br'),el('label',{class:'tf-sd-help'},[el('input',{type:'checkbox',id:prefix+'-audio'}),' 视频带音频'])])
+        el('div',{class:'tf-sd-field'},[el('label',{text:'选项'}),el('label',{class:'tf-sd-help'},[el('input',{type:'checkbox',id:prefix+'-compulsory'}),' 强制重生成']),el('br'),el('label',{class:'tf-sd-help'},[el('input',{type:'checkbox',id:prefix+'-retry-failed-only'}),' 仅重试失败项']),el('br'),el('label',{class:'tf-sd-help'},[el('input',{type:'checkbox',id:prefix+'-audio'}),' 视频带音频'])])
       ]),
       el('div',{id:prefix+'-steps',class:'tf-sd-steps'}),
       el('div',{id:prefix+'-workflow-status',class:'tf-sd-status'})
@@ -652,7 +706,7 @@
           ]),
           field('分镜图提示词','textarea','tf-sm-edit-prompt',''),
           field('画面内容 / 视频描述','textarea','tf-sm-edit-video-desc',''),
-          el('div',{class:'tf-sd-field'},[el('label',{text:'关联原始资产'}),el('div',{id:'tf-sm-edit-assets',class:'tf-sm-edit-assets'})]),
+          el('div',{class:'tf-sd-field'},[el('label',{text:'关联资产'}),el('div',{id:'tf-sm-edit-assets',class:'tf-sm-edit-assets'})]),
           el('div',{id:'tf-sm-edit-status',class:'tf-sd-status'})
         ]),
         el('div',{class:'tf-sm-dialog-footer'},[
@@ -663,9 +717,48 @@
     ]);
   }
 
+  function buildAssetEditDialog(){
+    return el('div',{id:'tf-sm-asset-edit-dialog',class:'tf-sm-dialog'},[
+      el('div',{class:'tf-sm-dialog-mask',on:{click:closeEditAsset}}),
+      el('div',{class:'tf-sm-dialog-panel tf-sm-asset-edit-panel'},[
+        el('div',{class:'tf-sm-dialog-header'},[
+          el('div',{},[el('div',{class:'tf-sd-title',text:'编辑资产'}),el('div',{class:'tf-sd-help',text:'修改资产描述和图片生成提示词。'})]),
+          el('button',{class:'tf-sd-close',text:'×',title:'关闭',on:{click:closeEditAsset}})
+        ]),
+        el('div',{class:'tf-sm-dialog-body'},[
+          field('资产描述','textarea','tf-sm-asset-edit-describe',''),
+          field('图片生成提示词','textarea','tf-sm-asset-edit-prompt',''),
+          el('div',{id:'tf-sm-asset-edit-status',class:'tf-sd-status'})
+        ]),
+        el('div',{class:'tf-sm-dialog-footer'},[
+          el('button',{class:'tf-sd-btn',text:'取消',on:{click:closeEditAsset}}),
+          el('button',{class:'tf-sd-btn primary',text:'保存',on:{click:saveAssetEdit}})
+        ])
+      ])
+    ]);
+  }
+
+  function buildImagePreview(){
+    return el('div',{id:'tf-sm-image-preview',class:'tf-sm-dialog tf-sm-image-preview'},[
+      el('div',{class:'tf-sm-dialog-mask',on:{click:closeImagePreview}}),
+      el('div',{class:'tf-sm-image-preview-panel'},[
+        el('div',{class:'tf-sm-image-preview-header'},[
+          el('div',{id:'tf-sm-image-preview-title',class:'tf-sd-title',text:'图片预览'}),
+          el('button',{class:'tf-sd-close',text:'×',title:'关闭预览',on:{click:closeImagePreview}})
+        ]),
+        el('img',{id:'tf-sm-image-preview-img',alt:'资产大图'})
+      ])
+    ]);
+  }
+
   function renderStoryboardPage(){
     let root = $('tf-storyboard-page-root');
-    if (!isStoryboardRoute()) { if(root) root.classList.remove('open'); return; }
+    if (!isStoryboardRoute()) {
+      if(root) root.classList.remove('open');
+      if (listTimer) { clearInterval(listTimer); listTimer = null; }
+      if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+      return;
+    }
     if (!root) {
       root = el('div',{id:'tf-storyboard-page-root'},[
         el('div',{class:'tf-sm-shell'},[
@@ -690,12 +783,14 @@
               el('div',{class:'tf-sd-section'},[el('h3',{text:'2. 分镜表列表'}),el('div',{id:'tf-sm-list',class:'tf-sd-preview tf-sm-list'},[el('div',{class:'tf-sd-help',style:'padding:10px',text:'暂无数据'})])])
             ]),
             el('div',{class:'tf-sm-right'},[
-              el('div',{class:'tf-sd-section'},[el('h3',{text:'原始资产'}),el('div',{id:'tf-sm-assets',class:'tf-sm-assets'},[el('div',{class:'tf-sd-help',text:'导入分镜表后自动生成角色、场景、道具。'})])]),
+              el('div',{class:'tf-sd-section'},[el('h3',{text:'资产管理'}),el('div',{id:'tf-sm-assets',class:'tf-sm-assets'},[el('div',{class:'tf-sd-help',text:'导入分镜表后自动生成角色、场景、道具。'})])]),
               buildWorkflowSection('tf-sm')
             ])
           ])
         ]),
-        buildEditDialog()
+        buildEditDialog(),
+        buildAssetEditDialog(),
+        buildImagePreview()
       ]);
       document.body.appendChild(root);
     }
@@ -703,7 +798,14 @@
     bindContextFields('tf-sm');
     if (!$('tf-sm-compulsory').__tfRenderBound) {
       $('tf-sm-compulsory').__tfRenderBound = true;
-      $('tf-sm-compulsory').addEventListener('change', function(){ renderSteps(progressByTarget.page || null, 'page'); });
+      $('tf-sm-compulsory').addEventListener('change', function(){
+        if ($('tf-sm-compulsory').checked) $('tf-sm-retry-failed-only').checked = false;
+        renderSteps(progressByTarget.page || null, 'page');
+      });
+      $('tf-sm-retry-failed-only').addEventListener('change', function(){
+        if ($('tf-sm-retry-failed-only').checked) $('tf-sm-compulsory').checked = false;
+        renderSteps(progressByTarget.page || null, 'page');
+      });
     }
     guessIds();
     loadConfig('page');
@@ -711,6 +813,8 @@
     refreshProgress('page');
     if (listTimer) clearInterval(listTimer);
     listTimer = setInterval(function(){ if(isStoryboardRoute()) refreshStoryboardList(); }, 15000);
+    if (progressTimer) clearInterval(progressTimer);
+    progressTimer = setInterval(function(){ if(isStoryboardRoute()) refreshProgress('page'); }, 5000);
   }
 
   function hookHistory(){
@@ -731,7 +835,6 @@
   }
 
   function buildUI(){
-    buildLegacyUI();
     hookHistory();
     renderStoryboardPage();
     setInterval(patchProjectCards, 1200);

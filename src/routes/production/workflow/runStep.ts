@@ -40,6 +40,8 @@ export default router.post(
     groupSize: z.number().int().min(1).optional(),
     otherTextPrompt: z.string().optional(),
     compulsory: z.boolean().optional(),
+    itemIds: z.array(z.number().int()).optional(),
+    retryFailedOnly: z.boolean().optional(),
     audio: z.boolean().optional(),
   }),
   async (req, res) => {
