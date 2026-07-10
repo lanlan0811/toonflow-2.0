@@ -4,6 +4,7 @@ import { db } from "@/utils/db";
 import { z } from "zod";
 import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
+import { normalizeProjectType, ProjectTypes } from "@/constants/project";
 
 const router = express.Router();
 
@@ -71,6 +72,24 @@ function normalizeName(name: string) {
 
 function uniqueNumbers(ids: number[]) {
   return [...new Set(ids.filter((id) => Number.isFinite(id)))];
+}
+
+function normalizeStoryboardFilePath(src?: string | null): string {
+  const value = src?.trim();
+  if (!value || /^data:/i.test(value) || /^\/\//.test(value)) return "";
+  const isHttpUrl = /^https?:\/\//i.test(value);
+  if (/^[a-z][a-z\d+.-]*:/i.test(value) && !isHttpUrl) return "";
+  if (isHttpUrl) {
+    try {
+      if (!/^\/(?:oss|smallImage)\//.test(new URL(value).pathname)) return "";
+    } catch {
+      return "";
+    }
+  } else if (value.includes("\\") || /(^|\/)\.\.(\/|$)/.test(value)) {
+    return "";
+  }
+  const filePath = u.replaceUrl(value);
+  return !filePath || filePath === "." || /\/$/.test(filePath) ? "" : filePath;
 }
 
 function formatDateName() {
@@ -248,6 +267,10 @@ export default router.post(
 
     try {
       const result = await db.transaction(async (trx: any) => {
+        const project = await trx("o_project").where("id", projectId).select("projectType").first();
+        if (!project) throw new Error("未找到对应项目");
+        if (normalizeProjectType(project.projectType ?? "") !== ProjectTypes.storyboard) throw new Error("仅基于分镜表的项目支持导入分镜表");
+
         const scriptId = await ensureScript(trx, projectId, req.body.scriptId, scriptName);
         const storyboardRows: { id: number; track: string; duration: number; associateAssetsIds: number[] }[] = [];
 
@@ -255,15 +278,18 @@ export default router.post(
           const associateAssetsIds = await ensureAssets(trx, projectId, item, meta, options);
           if (options?.createScriptAssets !== false) await insertMissingScriptAssets(trx, scriptId, associateAssetsIds);
           const videoDesc = item.shotNo && !item.videoDesc.includes("镜号：") ? `镜号：${item.shotNo}\n${item.videoDesc}` : item.videoDesc;
+          const filePath = normalizeStoryboardFilePath(item.src);
+          const state = filePath ? "已完成" : "未生成";
           const [id] = await trx("o_storyboard").insert({
             prompt: item.prompt,
             duration: String(item.duration),
-            state: item.state ?? "未生成",
+            state,
+            filePath,
             scriptId,
             projectId,
             track: item.track,
             videoDesc,
-            shouldGenerateImage: item.shouldGenerateImage,
+            shouldGenerateImage: filePath ? 1 : item.shouldGenerateImage,
             index: options?.writeStoryboardIndex === false ? undefined : item.index ?? rowIndex + 1,
             createTime: Date.now(),
           });

@@ -2,7 +2,7 @@ import express from "express";
 import u from "@/utils";
 import { z } from "zod";
 import sharp from "sharp";
-import { success } from "@/lib/responseFormat";
+import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
 import { Output } from "ai";
 const router = express.Router();
@@ -18,15 +18,38 @@ export default router.post(
   async (req, res) => {
     const { assetIds, projectId, scriptId, concurrentCount = 5 } = req.body;
 
-    const projectSettingData = await u.db("o_project").where("id", projectId).select("imageModel", "imageQuality", "artStyle").first();
+    const requestedAssetIds = [...new Set((assetIds as number[]).filter((id) => Number.isFinite(id)))];
+    if (!requestedAssetIds.length) return res.status(400).send(error("assetIds不能为空"));
 
-    const assetsDataArr = await u.db("o_assets").whereIn("id", assetIds).select("id", "describe", "name", "type", "assetsId");
-    const parentIds = assetsDataArr.map((item) => item.assetsId).filter((id) => id !== null);
+    const projectSettingData = await u.db("o_project").where("id", projectId).select("imageModel", "imageQuality", "artStyle").first();
+    if (!projectSettingData) return res.status(400).send(error("未找到对应项目"));
+
+    const script = await u.db("o_script").where({ id: scriptId, projectId }).first();
+    if (!script) return res.status(400).send(error("未找到对应剧本"));
+
+    const assetsDataArr = await u
+      .db("o_assets")
+      .join("o_scriptAssets", "o_assets.id", "o_scriptAssets.assetId")
+      .where("o_assets.projectId", projectId)
+      .where("o_scriptAssets.scriptId", scriptId)
+      .whereIn("o_assets.id", requestedAssetIds)
+      .whereNotNull("o_assets.assetsId")
+      .select("o_assets.id", "o_assets.describe", "o_assets.name", "o_assets.type", "o_assets.assetsId", "o_assets.prompt");
+    const validAssetIds = new Set(assetsDataArr.map((item) => item.id));
+    if (validAssetIds.size !== requestedAssetIds.length) {
+      return res.status(400).send(error("资产必须属于当前项目和剧本，且必须为衍生资产"));
+    }
+
+    const parentIds = [...new Set(assetsDataArr.map((item) => item.assetsId as number))];
     const parentAssetsData = await u
       .db("o_assets")
       .leftJoin("o_image", "o_assets.imageId", "o_image.id")
-      .whereIn("o_assets.id", parentIds as number[])
+      .where("o_assets.projectId", projectId)
+      .whereIn("o_assets.id", parentIds)
       .select("o_assets.id", "o_image.filePath", "o_assets.describe");
+    if (new Set(parentAssetsData.map((item) => item.id)).size !== parentIds.length) {
+      return res.status(400).send(error("衍生资产的父资产不存在或不属于当前项目"));
+    }
     assetsDataArr.forEach((i: any) => {
       const parent = parentAssetsData.find((item) => item.id === i.assetsId);
       if (parent) {
@@ -65,33 +88,37 @@ export default router.post(
       await u.db("o_assets").where("id", item.id).update({ imageId: imageId });
     }
 
-    const imageData: { id: number; state: string; src: string }[] = [];
     res.status(200).send(success("开始生成资产图片"));
     const generateSingleAsset = async (item: any) => {
       const imageId = imageIdMap[item.id!];
-      const typeConfig = promptRecord[item.type!] || promptRecord["role"];
-
-      const { text } = await u.Ai.Text("universalAi").invoke({
-        system: `${typeConfig.prompt}`,
-        messages: [
-          {
-            role: "user",
-            content: `
+      try {
+        let prompt = typeof item.prompt === "string" ? item.prompt.trim() : "";
+        if (!prompt) {
+          const typeConfig = promptRecord[item.type!] || promptRecord["role"];
+          const { text } = await u.Ai.Text("universalAi").invoke({
+            system: typeConfig.prompt,
+            messages: [
+              {
+                role: "user",
+                content: `
             父级资产描述: ${item.parentDescribe || "无详细描述"}
             当前资产描述: ${item.describe || "无详细描述"}`,
-          },
-        ],
-      });
-        await u.db("o_assets").where("id", item.id).update({ prompt: text });
+              },
+            ],
+          });
+          prompt = text.trim();
+          if (!prompt) throw new Error("资产提示词生成结果为空");
+          await u.db("o_assets").where({ id: item.id, projectId }).update({ prompt });
+        }
 
-      const imageBase64 = imageUrlRecord[item.assetsId!] ? await u.oss.getImageBase64(imageUrlRecord[item.assetsId!]) : null;
-      try {
+        const parentImagePath = imageUrlRecord[item.assetsId!];
+        const imageBase64 = parentImagePath ? await u.oss.getImageBase64(parentImagePath) : null;
         const repeloadObj = {
-          prompt: text,
-          size: projectSettingData?.imageQuality as "1K" | "2K" | "4K",
+          prompt,
+          size: projectSettingData.imageQuality as "1K" | "2K" | "4K",
           aspectRatio: "16:9" as `${number}:${number}`,
         };
-        const imageCls = await u.Ai.Image(projectSettingData?.imageModel as `${string}:${string}`).run(
+        const imageCls = await u.Ai.Image(projectSettingData.imageModel as `${string}:${string}`).run(
           {
             referenceList: imageBase64 ? [{ type: "image", base64: imageBase64 }] : [],
             ...repeloadObj,
@@ -100,35 +127,26 @@ export default router.post(
             taskClass: "生成图片",
             describe: "资产图片生成",
             relatedObjects: JSON.stringify(repeloadObj),
-            projectId: projectId,
+            projectId,
           },
         );
         const savePath = `/${projectId}/assets/${scriptId}/${item.type}/${u.uuid()}.jpg`;
         await imageCls.save(savePath);
-        await u.db("o_image").where({ id: imageId }).update({ state: "已完成", filePath: savePath });
-        return {
-          id: item.id!,
-          state: "已完成",
-          src: await u.oss.getSmallImageUrl(savePath),
-        };
+        await u.db("o_image").where({ id: imageId }).update({ state: "已完成", filePath: savePath, errorReason: null });
       } catch (e) {
-        await u
-          .db("o_image")
-          .where({ id: imageId })
-          .update({ state: "生成失败", errorReason: u.error(e).message });
-        return {
-          id: item.id!,
-          state: "生成失败",
-          src: "",
-        };
+        const errorReason = u.error(e).message;
+        try {
+          await u.db("o_image").where({ id: imageId }).update({ state: "生成失败", errorReason });
+        } catch (updateError) {
+          console.error(`资产 ${item.id} 生成失败状态写入失败`, updateError);
+        }
       }
     };
 
     // 按 concurrentCount 分批并发执行
     for (let i = 0; i < assetsDataArr.length; i += concurrentCount) {
       const batch = assetsDataArr.slice(i, i + concurrentCount);
-      const batchResults = await Promise.all(batch.map(generateSingleAsset));
-      imageData.push(...batchResults);
+      await Promise.all(batch.map(generateSingleAsset));
     }
   },
 );

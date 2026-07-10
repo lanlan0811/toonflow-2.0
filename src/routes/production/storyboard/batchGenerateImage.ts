@@ -117,13 +117,18 @@ export default router.post(
           state: "已完成",
         });
       } catch (e) {
-        u.db("o_storyboard")
-          .where("id", item.id)
-          .update({
-            filePath: "",
-            reason: u.error(e).message,
-            state: "生成失败",
-          });
+        try {
+          await u
+            .db("o_storyboard")
+            .where("id", item.id)
+            .update({
+              filePath: "",
+              reason: u.error(e).message,
+              state: "生成失败",
+            });
+        } catch (updateError) {
+          console.error(`分镜 ${item.id} 失败状态写入失败`, updateError);
+        }
       }
     };
     // 按 concurrentCount 控制并发数，分批执行；跳过 shouldGenerateImage === 0 的分镜

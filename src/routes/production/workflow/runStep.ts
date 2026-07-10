@@ -23,6 +23,13 @@ function getAuthHeaders(req: express.Request) {
   return req.headers.authorization ? { authorization: req.headers.authorization } : undefined;
 }
 
+function getInternalUrl(baseUrl: string, path: string, req: express.Request) {
+  const url = new URL(path, baseUrl);
+  const token = typeof req.query.token === "string" ? req.query.token : "";
+  if (token) url.searchParams.set("token", token);
+  return url.toString();
+}
+
 export default router.post(
   "/",
   validateFields({
@@ -39,7 +46,8 @@ export default router.post(
     try {
       const baseUrl = getBaseUrl(req);
       const headers = getAuthHeaders(req);
-      const prepareRes = await axios.post(`${baseUrl}/api/production/workflow/prepareStepRequest`, req.body, { headers });
+      const prepareUrl = getInternalUrl(baseUrl, "/api/production/workflow/prepareStepRequest", req);
+      const prepareRes = await axios.post(prepareUrl, req.body, { headers });
       const prepared = prepareRes.data?.data as PreparedStep | undefined;
       if (!prepared) return res.status(400).send(error("流程步骤请求体准备失败"));
       if (!prepared.total) {
@@ -52,7 +60,8 @@ export default router.post(
         );
       }
 
-      const runRes = await axios.post(`${baseUrl}${prepared.targetApi}`, prepared.requestBody, { headers });
+      const targetUrl = getInternalUrl(baseUrl, prepared.targetApi, req);
+      const runRes = await axios.post(targetUrl, prepared.requestBody, { headers });
       return res.status(200).send(
         success({
           status: "started",

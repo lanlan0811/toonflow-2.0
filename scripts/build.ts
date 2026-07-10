@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 import fs from "fs";
 import path from "path";
+import generateRouter from "../src/core";
 
 // 打包默认使用 prod 环境变量
 if (!process.env.NODE_ENV) {
@@ -71,6 +72,8 @@ const mainBuildConfig: esbuild.BuildOptions = {
 (async () => {
   try {
     console.log("🔨 开始构建...\n");
+
+    await generateRouter();
 
     // 并行构建
     await Promise.all([esbuild.build(appBuildConfig), esbuild.build(mainBuildConfig)]);

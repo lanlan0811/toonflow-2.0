@@ -4,6 +4,7 @@ export const workflowStepValues = [
   "extractOriginalAssets",
   "polishOriginalAssetPrompts",
   "generateOriginalAssetImages",
+  "generateDerivedAssets",
   "polishDerivedAssetPrompts",
   "generateDerivedAssetImages",
   "generateStoryboardImages",
@@ -37,7 +38,7 @@ export const workflowStepConfigs: WorkflowStepConfig[] = [
     key: "polishOriginalAssetPrompts",
     label: "润色原始资产提示词",
     description: "根据项目画风和资产描述补全原始资产生成提示词。",
-    progressKey: "originalAssets",
+    progressKey: "originalAssetPrompts",
     targetApi: "/api/assetsGenerate/batchPolishAssetsPrompt",
     order: 20,
   },
@@ -50,12 +51,20 @@ export const workflowStepConfigs: WorkflowStepConfig[] = [
     order: 30,
   },
   {
+    key: "generateDerivedAssets",
+    label: "生成衍生资产",
+    description: "根据原始资产、剧本和分镜上下文生成衍生资产建议。",
+    progressKey: "derivedAssets",
+    targetApi: "/api/production/workflow/generateDerivedAssets",
+    order: 40,
+  },
+  {
     key: "polishDerivedAssetPrompts",
     label: "润色衍生资产提示词",
     description: "根据父级资产和衍生资产描述补全衍生资产提示词。",
-    progressKey: "derivedAssets",
+    progressKey: "derivedAssetPrompts",
     targetApi: "/api/assetsGenerate/batchPolishAssetsPrompt",
-    order: 40,
+    order: 50,
   },
   {
     key: "generateDerivedAssetImages",
@@ -63,7 +72,7 @@ export const workflowStepConfigs: WorkflowStepConfig[] = [
     description: "批量生成衍生角色、场景、道具图片。",
     progressKey: "derivedAssetImages",
     targetApi: "/api/production/assets/batchGenerateAssetsImage",
-    order: 50,
+    order: 60,
   },
   {
     key: "generateStoryboardImages",
@@ -71,7 +80,7 @@ export const workflowStepConfigs: WorkflowStepConfig[] = [
     description: "根据分镜面板和关联资产生成分镜图片。",
     progressKey: "storyboardImages",
     targetApi: "/api/production/storyboard/batchGenerateImage",
-    order: 60,
+    order: 70,
   },
   {
     key: "generateVideoPrompts",
@@ -79,7 +88,7 @@ export const workflowStepConfigs: WorkflowStepConfig[] = [
     description: "按视频轨道整合分镜和资产信息，生成视频模型提示词。",
     progressKey: "videoPrompts",
     targetApi: "/api/production/workbench/batchGeneratePrompt",
-    order: 70,
+    order: 80,
   },
   {
     key: "generateVideos",
@@ -87,7 +96,7 @@ export const workflowStepConfigs: WorkflowStepConfig[] = [
     description: "按视频轨道提交视频生成任务。",
     progressKey: "videos",
     targetApi: "/api/production/workbench/batchGenerateVideo",
-    order: 80,
+    order: 90,
   },
 ];
 

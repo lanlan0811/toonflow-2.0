@@ -77,6 +77,9 @@ type ParsedImport = {
   warnings: string[];
 };
 
+type DurationIssue = "missing" | "invalid";
+const durationIssues = new WeakMap<ImportRow, DurationIssue>();
+
 type StandardStoryboardRecord = {
   shotNo?: string;
   duration?: unknown;
@@ -160,13 +163,21 @@ function getAliasValue(record: Record<string, unknown>, key: keyof typeof header
   return alias ? record[alias] : undefined;
 }
 
-function parseDuration(value: unknown, fallback = 3): number {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+function inspectDuration(value: unknown, fallback = 3): { value: number; issue?: DurationIssue } {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value > 0 ? { value } : { value: fallback, issue: "invalid" };
+  }
   const text = cleanText(value);
+  if (!text) return { value: fallback, issue: "missing" };
+  if (/-\s*\d/.test(text)) return { value: fallback, issue: "invalid" };
   const match = text.match(/\d+(?:\.\d+)?/);
-  if (!match) return fallback;
+  if (!match) return { value: fallback, issue: "invalid" };
   const duration = Number(match[0]);
-  return Number.isFinite(duration) && duration > 0 ? duration : fallback;
+  return Number.isFinite(duration) && duration > 0 ? { value: duration } : { value: fallback, issue: "invalid" };
+}
+
+function parseDuration(value: unknown, fallback = 3): number {
+  return inspectDuration(value, fallback).value;
 }
 
 function toShouldGenerateImage(value: unknown): number {
@@ -207,14 +218,14 @@ function buildVideoDesc(record: StandardStoryboardRecord): string {
 function normalizeRow(record: Record<string, unknown>, index: number): ImportRow {
   const videoDesc = cleanText(getAliasValue(record, "videoDesc") ?? getAliasValue(record, "prompt") ?? "");
   const prompt = cleanText(getAliasValue(record, "prompt") ?? videoDesc);
-  const duration = parseDuration(getAliasValue(record, "duration") ?? 3);
+  const durationResult = inspectDuration(getAliasValue(record, "duration"));
   const track = cleanText(getAliasValue(record, "track") ?? "默认分组") || "默认分组";
   const shouldGenerateImage = toShouldGenerateImage(getAliasValue(record, "shouldGenerateImage"));
   const associateAssetsIds = Array.isArray(record.associateAssetsIds) ? record.associateAssetsIds.map(Number).filter((id) => !Number.isNaN(id)) : [];
 
-  return {
+  const row: ImportRow = {
     prompt: prompt || `分镜${index + 1}`,
-    duration,
+    duration: durationResult.value,
     track,
     state: cleanText(record.state ?? "未生成") || "未生成",
     src: typeof record.src === "string" && record.src ? record.src : null,
@@ -225,9 +236,12 @@ function normalizeRow(record: Record<string, unknown>, index: number): ImportRow
     sceneNames: splitList(getAliasValue(record, "sceneNames")),
     toolNames: splitList(getAliasValue(record, "toolNames")),
   };
+  if (durationResult.issue) durationIssues.set(row, durationResult.issue);
+  return row;
 }
 
 function normalizeStandardRow(record: StandardStoryboardRecord, index: number, meta: ImportMeta): ImportRow {
+  const durationResult = inspectDuration(record.duration);
   const visualContent = cleanText(record.visualContent ?? record.videoDesc ?? record.prompt ?? "");
   const dialogue = cleanText(record.dialogue ?? "");
   const props = cleanText(record.props ?? "");
@@ -248,11 +262,11 @@ function normalizeStandardRow(record: StandardStoryboardRecord, index: number, m
   const toolNames = splitList(record.toolNames);
   const roleText = [visualContent, dialogue, props].join("\n");
 
-  return {
+  const row: ImportRow = {
     shotNo: cleanText(record.shotNo ?? "") || undefined,
     index: index + 1,
     prompt: cleanText(record.prompt ?? visualContent) || `分镜${index + 1}`,
-    duration: parseDuration(record.duration),
+    duration: durationResult.value,
     track: cleanText(record.track ?? scene) || "默认分组",
     state: cleanText(record.state ?? "未生成") || "未生成",
     src: typeof record.src === "string" && record.src ? record.src : null,
@@ -271,6 +285,8 @@ function normalizeStandardRow(record: StandardStoryboardRecord, index: number, m
     props: props || undefined,
     remark: cleanText(record.remark ?? "") || undefined,
   };
+  if (durationResult.issue) durationIssues.set(row, durationResult.issue);
+  return row;
 }
 
 function parseCsvLine(line: string): string[] {
@@ -352,10 +368,12 @@ function parseKeyValueBlocks(section: string, startField: string, fields: Record
     const match = line.match(/^([^：:]{1,16})[：:](.*)$/);
     const rawKey = match ? match[1].trim() : "";
     const rawValue = match ? match[2].trim() : "";
-    if (rawKey === startField) {
+    const numberedStartField = rawKey.match(new RegExp(`^${startField}\\s*[一二三四五六七八九十百零〇0-9]+$`));
+    if (rawKey === startField || numberedStartField) {
       if (current) blocks.push(current);
-      current = { [fields[rawKey] ?? rawKey]: rawValue };
-      currentKey = fields[rawKey] ?? rawKey;
+      const fieldKey = fields[startField] ?? startField;
+      current = { [fieldKey]: rawValue };
+      currentKey = fieldKey;
       return;
     }
     if (current && rawKey && fields[rawKey]) {
@@ -646,7 +664,9 @@ function mergeWarnings(parsed: ParsedImport): ParsedImport {
   const warnings = [...parsed.warnings];
   parsed.data.forEach((row, index) => {
     if (!row.shotNo) warnings.push(`第 ${index + 1} 条分镜缺少镜号`);
-    if (!row.duration) warnings.push(`第 ${index + 1} 条分镜缺少有效时长，已使用默认 3 秒`);
+    const durationIssue = durationIssues.get(row);
+    if (durationIssue === "missing") warnings.push(`第 ${index + 1} 条分镜缺少时长，已使用默认 3 秒`);
+    if (durationIssue === "invalid") warnings.push(`第 ${index + 1} 条分镜时长异常，已使用默认 3 秒`);
     if (!row.visualContent && !row.videoDesc) warnings.push(`第 ${index + 1} 条分镜缺少画面内容`);
   });
   return { ...parsed, warnings };

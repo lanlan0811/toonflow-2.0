@@ -8,6 +8,8 @@ import { workflowStepSchema, WorkflowStep, getWorkflowStepTargetApi } from "@/co
 
 const router = express.Router();
 
+type ItemState = "pending" | "success" | "failed" | "generating";
+
 type AssetRow = {
   id?: number;
   name?: string | null;
@@ -42,16 +44,18 @@ type TrackRow = {
 
 const assetTypes = ["role", "scene", "tool"];
 
-function imageReady(state?: string | null) {
-  return state === "已完成" || state === "生成成功";
+function getImageStatus(state?: string | null): ItemState {
+  if (state === "生成中") return "generating";
+  if (state === "生成失败" || state === "失败") return "failed";
+  if (state === "已完成" || state === "生成成功") return "success";
+  return "pending";
 }
 
-function imageGenerating(state?: string | null) {
-  return state === "生成中";
-}
-
-function promptGenerating(state?: string | null) {
-  return state === "生成中";
+function getPromptStatus(state?: string | null, prompt?: string | null): ItemState {
+  if (state === "生成中") return "generating";
+  if (state === "生成失败" || state === "失败") return "failed";
+  if (state === "已完成" || state === "生成成功" || !!prompt) return "success";
+  return "pending";
 }
 
 async function getProject(projectId: number) {
@@ -64,26 +68,28 @@ async function getScripts(projectId: number, scriptId?: number | null) {
   return await query.select("id", "name", "extractState");
 }
 
-async function getAssets(projectId: number, scriptIds: number[]) {
-  return (await u
+async function getAssets(projectId: number, scriptId?: number | null) {
+  const query = u
     .db("o_assets")
     .leftJoin("o_image", "o_assets.imageId", "o_image.id")
     .where("o_assets.projectId", projectId)
-    .modify((qb) => {
-      if (scriptIds.length) qb.where((builder) => builder.whereIn("o_assets.scriptId", scriptIds).orWhereNull("o_assets.scriptId"));
-    })
-    .whereIn("o_assets.type", assetTypes)
-    .select(
-      "o_assets.id",
-      "o_assets.name",
-      "o_assets.describe",
-      "o_assets.prompt",
-      "o_assets.type",
-      "o_assets.assetsId",
-      "o_assets.promptState",
-      "o_image.state as imageState",
-      "o_image.filePath",
-    )) as AssetRow[];
+    .whereIn("o_assets.type", assetTypes);
+  if (scriptId) {
+    query
+      .join("o_scriptAssets", "o_scriptAssets.assetId", "o_assets.id")
+      .where("o_scriptAssets.scriptId", scriptId);
+  }
+  return (await query.distinct(
+    "o_assets.id",
+    "o_assets.name",
+    "o_assets.describe",
+    "o_assets.prompt",
+    "o_assets.type",
+    "o_assets.assetsId",
+    "o_assets.promptState",
+    "o_image.state as imageState",
+    "o_image.filePath",
+  )) as AssetRow[];
 }
 
 async function getStoryboards(projectId: number, scriptId?: number | null) {
@@ -95,16 +101,63 @@ async function getStoryboards(projectId: number, scriptId?: number | null) {
 async function getTracks(projectId: number, scriptId?: number | null) {
   const query = u.db("o_videoTrack").where("projectId", projectId);
   if (scriptId) query.where("scriptId", scriptId);
-  return (await query.select("id", "scriptId", "prompt", "state", "duration")) as TrackRow[];
+  return (await query.select("id", "scriptId", "prompt", "state", "duration", "selectVideoId")) as (TrackRow & { selectVideoId?: number | null })[];
 }
 
-async function getStoryboardInfoByTrack(storyboards: StoryboardRow[]) {
-  return storyboards.reduce<Record<number, { id: number; sources: "storyboard" }[]>>((result, storyboard) => {
-    if (!storyboard.id || !storyboard.trackId) return result;
-    if (!result[storyboard.trackId]) result[storyboard.trackId] = [];
-    result[storyboard.trackId].push({ id: storyboard.id, sources: "storyboard" });
-    return result;
+type TrackSource = { id: number; sources: "storyboard" | "assets" };
+
+async function getTrackInfo(storyboards: StoryboardRow[]) {
+  const result = storyboards.reduce<Record<number, TrackSource[]>>((record, storyboard) => {
+    if (!storyboard.id || !storyboard.trackId) return record;
+    if (!record[storyboard.trackId]) record[storyboard.trackId] = [];
+    record[storyboard.trackId].push({ id: storyboard.id, sources: "storyboard" });
+    return record;
   }, {});
+  const storyboardIds = storyboards.map((item) => item.id).filter((id): id is number => !!id);
+  if (!storyboardIds.length) return result;
+
+  const relations = await u.db("o_assets2Storyboard").whereIn("storyboardId", storyboardIds).orderBy("rowid").select("storyboardId", "assetId");
+  const storyboardMap = new Map(storyboards.filter((item) => item.id && item.trackId).map((item) => [item.id!, item.trackId!]));
+  const trackAssetIds = new Map<number, Set<number>>();
+  relations.forEach((relation) => {
+    if (!relation.storyboardId || !relation.assetId) return;
+    const trackId = storyboardMap.get(relation.storyboardId);
+    if (!trackId) return;
+    if (!trackAssetIds.has(trackId)) trackAssetIds.set(trackId, new Set());
+    trackAssetIds.get(trackId)!.add(relation.assetId);
+  });
+  trackAssetIds.forEach((assetIds, trackId) => {
+    if (!result[trackId]) result[trackId] = [];
+    result[trackId].push(...[...assetIds].map((id) => ({ id, sources: "assets" as const })));
+  });
+  return result;
+}
+
+async function getVideoResolution(videoModel?: string | null) {
+  if (!videoModel) throw new Error("项目未配置视频模型");
+  const [vendorId, modelName] = videoModel.split(/:(.+)/);
+  if (!vendorId || !modelName) throw new Error("视频模型配置格式无效");
+  const models = await u.vendor.getModelList(vendorId);
+  const model = models.find((item) => item.modelName === modelName);
+  const resolution = model?.durationResolutionMap?.flatMap((item: { resolution?: string[] }) => item.resolution ?? []).find((item: string) => !!item);
+  if (!resolution) throw new Error("视频模型未配置可用分辨率");
+  return resolution;
+}
+
+function supportsAssetReferences(mode?: string | null) {
+  if (!mode) return false;
+  try {
+    return Array.isArray(JSON.parse(mode));
+  } catch {
+    return false;
+  }
+}
+
+function inferSingleScriptId(scripts: { id?: number }[], message: string) {
+  const ids = scripts.map((item) => item.id).filter((id): id is number => !!id);
+  if (ids.length > 1) throw new Error(message);
+  if (!ids.length) throw new Error("未找到可执行的剧本");
+  return ids[0];
 }
 
 export default router.post(
@@ -131,110 +184,152 @@ export default router.post(
       audio?: boolean;
     };
 
-    const project = await getProject(projectId);
-    if (!project) return res.status(400).send(error("项目不存在"));
+    try {
+      const project = await getProject(projectId);
+      if (!project) return res.status(400).send(error("项目不存在"));
 
-    const scripts = await getScripts(projectId, scriptId);
-    const scriptIds = scriptId ? [scriptId] : scripts.map((item) => item.id!).filter(Boolean);
-    const targetApi = getWorkflowStepTargetApi(step);
+      const scripts = await getScripts(projectId, scriptId);
+      if (scriptId && !scripts.length) return res.status(400).send(error("剧本不存在或不属于当前项目"));
+      const targetApi = getWorkflowStepTargetApi(step);
 
-    if (step === "extractOriginalAssets") {
-      const runnableScriptIds = scripts.filter((item) => item.extractState !== 0 && item.extractState !== 2).map((item) => item.id).filter(Boolean);
-      return res.status(200).send(success({ step, targetApi, requestBody: { scriptIds: runnableScriptIds, projectId, groupSize }, total: runnableScriptIds.length }));
-    }
+      if (step === "extractOriginalAssets") {
+        const runnableScriptIds = scripts
+          .filter((item) => item.extractState !== 1 && item.extractState !== 0 && item.extractState !== 2)
+          .map((item) => item.id)
+          .filter((id): id is number => !!id);
+        return res.status(200).send(success({ step, targetApi, requestBody: { scriptIds: runnableScriptIds, projectId, groupSize }, total: runnableScriptIds.length }));
+      }
 
-    const assets = await getAssets(projectId, scriptIds);
-    const originalAssets = assets.filter((item) => !item.assetsId);
-    const derivedAssets = assets.filter((item) => item.assetsId);
+      const assets = await getAssets(projectId, scriptId);
+      const originalAssets = assets.filter((item) => !item.assetsId);
+      const derivedAssets = assets.filter((item) => !!item.assetsId);
 
-    if (step === "polishOriginalAssetPrompts" || step === "polishDerivedAssetPrompts") {
-      const list = step === "polishOriginalAssetPrompts" ? originalAssets : derivedAssets;
-      const items = list
-        .filter((item) => !promptGenerating(item.promptState))
-        .map((item) => ({ assetsId: item.id, type: item.type, name: item.name ?? "", describe: item.describe ?? "" }));
-      return res.status(200).send(success({ step, targetApi, requestBody: { items, projectId, concurrentCount, otherTextPrompt }, total: items.length }));
-    }
+      if (step === "generateDerivedAssets") {
+        const realScriptId = scriptId ?? inferSingleScriptId(scripts, "项目包含多个剧本，生成衍生资产需要明确指定 scriptId");
+        const scriptDerivedAssets = scriptId ? derivedAssets : await getAssets(projectId, realScriptId).then((items) => items.filter((item) => !!item.assetsId));
+        const runnable = compulsory || !scriptDerivedAssets.length ? 1 : 0;
+        return res.status(200).send(success({ step, targetApi, requestBody: { projectId, scriptId: realScriptId }, total: runnable }));
+      }
 
-    if (step === "generateOriginalAssetImages") {
-      const items = originalAssets
-        .filter((item) => item.prompt && !imageGenerating(item.imageState))
-        .map((item) => ({ id: item.id, type: item.type, name: item.name ?? "", prompt: item.prompt ?? "", base64: null }));
-      return res.status(200).send(
-        success({
-          step,
-          targetApi,
-          requestBody: {
-            projectId,
-            model: project.imageModel,
-            resolution: project.imageQuality,
-            concurrentCount,
-            items,
-          },
-          total: items.length,
-        }),
-      );
-    }
+      if (step === "polishOriginalAssetPrompts" || step === "polishDerivedAssetPrompts") {
+        const list = step === "polishOriginalAssetPrompts" ? originalAssets : derivedAssets;
+        const items = list
+          .filter((item) => ["pending", "failed"].includes(getPromptStatus(item.promptState, item.prompt)))
+          .map((item) => ({ assetsId: item.id, type: item.type, name: item.name ?? "", describe: item.describe ?? "" }));
+        return res.status(200).send(success({ step, targetApi, requestBody: { items, projectId, concurrentCount, otherTextPrompt }, total: items.length }));
+      }
 
-    if (step === "generateDerivedAssetImages") {
-      if (!scriptId) return res.status(400).send(error("生成衍生资产图需要指定 scriptId"));
-      const assetIds = derivedAssets.filter((item) => item.prompt && !imageGenerating(item.imageState)).map((item) => item.id).filter(Boolean);
-      return res.status(200).send(success({ step, targetApi, requestBody: { assetIds, projectId, scriptId, concurrentCount }, total: assetIds.length }));
-    }
-
-    const storyboards = await getStoryboards(projectId, scriptId);
-
-    if (step === "generateStoryboardImages") {
-      if (!scriptId && storyboards.some((item) => item.scriptId !== storyboards[0]?.scriptId)) return res.status(400).send(error("跨剧本生成分镜图需要指定 scriptId"));
-      const realScriptId = scriptId ?? storyboards[0]?.scriptId;
-      if (!realScriptId) return res.status(400).send(error("未找到可生成分镜图的剧本"));
-      const storyboardIds = storyboards.filter((item) => item.shouldGenerateImage !== 0 && !imageGenerating(item.state)).map((item) => item.id).filter(Boolean);
-      return res.status(200).send(success({ step, targetApi, requestBody: { storyboardIds, projectId, scriptId: realScriptId, concurrentCount, compulsory }, total: storyboardIds.length }));
-    }
-
-    const tracks = await getTracks(projectId, scriptId);
-    const storyboardInfoByTrack = await getStoryboardInfoByTrack(storyboards);
-
-    if (step === "generateVideoPrompts") {
-      const trackData = tracks
-        .filter((item) => !promptGenerating(item.state) && storyboardInfoByTrack[item.id!]?.length)
-        .map((item) => ({ trackId: item.id, info: storyboardInfoByTrack[item.id!] }));
-      return res.status(200).send(success({ step, targetApi, requestBody: { projectId, trackData, mode: project.mode ?? "", model: project.videoModel, concurrentCount }, total: trackData.length }));
-    }
-
-    if (step === "generateVideos") {
-      if (!scriptId && tracks.some((item) => item.scriptId !== tracks[0]?.scriptId)) return res.status(400).send(error("跨剧本生成视频需要指定 scriptId"));
-      const realScriptId = scriptId ?? tracks[0]?.scriptId;
-      if (!realScriptId) return res.status(400).send(error("未找到可生成视频的剧本"));
-      const trackData = tracks
-        .filter((item) => item.prompt && storyboardInfoByTrack[item.id!]?.length)
-        .map((item) => ({
-          trackId: item.id,
-          prompt: item.prompt ?? "",
-          duration: item.duration ?? 5,
-          uploadData: (storyboardInfoByTrack[item.id!] ?? []).filter((storyboard) => {
-            const row = storyboards.find((item) => item.id === storyboard.id);
-            return row?.filePath && imageReady(row.state);
+      if (step === "generateOriginalAssetImages") {
+        const items = originalAssets
+          .filter((item) => item.prompt && getImageStatus(item.imageState) !== "generating" && (compulsory || getImageStatus(item.imageState) !== "success"))
+          .map((item) => ({ id: item.id, type: item.type, name: item.name ?? "", prompt: item.prompt ?? "", base64: null }));
+        return res.status(200).send(
+          success({
+            step,
+            targetApi,
+            requestBody: {
+              projectId,
+              model: project.imageModel,
+              resolution: project.imageQuality,
+              concurrentCount,
+              items,
+            },
+            total: items.length,
           }),
-        }))
-        .filter((item) => item.uploadData.length);
-      return res.status(200).send(
-        success({
-          step,
-          targetApi,
-          requestBody: {
-            projectId,
-            scriptId: realScriptId,
-            trackData,
-            model: project.videoModel,
-            mode: project.mode ?? "",
-            resolution: project.imageQuality,
-            audio,
-          },
-          total: trackData.length,
-        }),
-      );
-    }
+        );
+      }
 
-    return res.status(400).send(error("不支持的流程步骤"));
+      if (step === "generateDerivedAssetImages") {
+        const realScriptId = scriptId ?? inferSingleScriptId(scripts, "项目包含多个剧本，生成衍生资产图需要明确指定 scriptId");
+        const scriptAssets = scriptId ? derivedAssets : await getAssets(projectId, realScriptId).then((items) => items.filter((item) => !!item.assetsId));
+        const assetIds = scriptAssets
+          .filter((item) => item.prompt && getImageStatus(item.imageState) !== "generating" && (compulsory || getImageStatus(item.imageState) !== "success"))
+          .map((item) => item.id)
+          .filter((id): id is number => !!id);
+        return res.status(200).send(success({ step, targetApi, requestBody: { assetIds, projectId, scriptId: realScriptId, concurrentCount }, total: assetIds.length }));
+      }
+
+      const storyboards = await getStoryboards(projectId, scriptId);
+
+      if (step === "generateStoryboardImages") {
+        const realScriptId = scriptId ?? inferSingleScriptId(scripts, "项目包含多个剧本，生成分镜图需要明确指定 scriptId");
+        const scriptStoryboards = scriptId ? storyboards : storyboards.filter((item) => item.scriptId === realScriptId);
+        const storyboardIds = scriptStoryboards
+          .filter((item) => item.shouldGenerateImage !== 0 && getImageStatus(item.state) !== "generating" && (compulsory || getImageStatus(item.state) !== "success"))
+          .map((item) => item.id)
+          .filter((id): id is number => !!id);
+        return res.status(200).send(success({ step, targetApi, requestBody: { storyboardIds, projectId, scriptId: realScriptId, concurrentCount, compulsory }, total: storyboardIds.length }));
+      }
+
+      const tracks = await getTracks(projectId, scriptId);
+      const trackInfo = await getTrackInfo(storyboards);
+
+      if (step === "generateVideoPrompts") {
+        const trackData = tracks
+          .filter((item) => ["pending", "failed"].includes(getPromptStatus(item.state, item.prompt)) && trackInfo[item.id!]?.some((source) => source.sources === "storyboard"))
+          .map((item) => ({ trackId: item.id, info: trackInfo[item.id!] }));
+        return res.status(200).send(success({ step, targetApi, requestBody: { projectId, trackData, mode: project.mode ?? "", model: project.videoModel, concurrentCount }, total: trackData.length }));
+      }
+
+      if (step === "generateVideos") {
+        const realScriptId = scriptId ?? inferSingleScriptId(scripts, "项目包含多个剧本，生成视频需要明确指定 scriptId");
+        const scriptTracks = tracks.filter((item) => item.scriptId === realScriptId);
+        const trackIds = scriptTracks.map((item) => item.id!).filter(Boolean);
+        const videos = trackIds.length
+          ? await u.db("o_video").whereIn("videoTrackId", trackIds).select("id", "videoTrackId", "state", "time")
+          : [];
+        const runnableTrackIds = new Set(
+          scriptTracks
+            .filter((track) => {
+              const attempts = videos
+                .filter((video) => video.videoTrackId === track.id)
+                .sort((a, b) => Number(b.time ?? b.id ?? 0) - Number(a.time ?? a.id ?? 0));
+              const representative = attempts.find((video) => video.id === track.selectVideoId) ?? attempts.find((video) => getImageStatus(video.state) === "success") ?? attempts[0];
+              return compulsory || ["pending", "failed"].includes(getImageStatus(representative?.state));
+            })
+            .map((track) => track.id),
+        );
+        const assetMap = new Map(assets.filter((item) => item.id).map((item) => [item.id!, item]));
+        const includeAssetReferences = supportsAssetReferences(project.mode);
+        const trackData = scriptTracks
+          .filter((item) => item.prompt && trackInfo[item.id!]?.some((source) => source.sources === "storyboard") && runnableTrackIds.has(item.id))
+          .map((item) => ({
+            trackId: item.id,
+            prompt: item.prompt ?? "",
+            duration: item.duration ?? 5,
+            uploadData: (trackInfo[item.id!] ?? []).filter((source) => {
+              if (source.sources === "storyboard") {
+                const row = storyboards.find((storyboard) => storyboard.id === source.id);
+                return row?.filePath && getImageStatus(row.state) === "success";
+              }
+              if (!includeAssetReferences) return false;
+              const asset = assetMap.get(source.id);
+              return asset?.filePath && getImageStatus(asset.imageState) === "success";
+            }),
+          }))
+          .filter((item) => item.uploadData.some((source) => source.sources === "storyboard"));
+        const resolution = trackData.length ? await getVideoResolution(project.videoModel) : "";
+        return res.status(200).send(
+          success({
+            step,
+            targetApi,
+            requestBody: {
+              projectId,
+              scriptId: realScriptId,
+              trackData,
+              model: project.videoModel,
+              mode: project.mode ?? "",
+              resolution,
+              audio,
+            },
+            total: trackData.length,
+          }),
+        );
+      }
+
+      return res.status(400).send(error("不支持的流程步骤"));
+    } catch (e) {
+      return res.status(400).send(error(u.error(e).message));
+    }
   },
 );
