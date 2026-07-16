@@ -3,33 +3,22 @@ import u from "@/utils";
 import { db } from "@/utils/db";
 import { z } from "zod";
 import { error, success } from "@/lib/responseFormat";
+import {
+  associateBatchStoryboardTools,
+  buildStoryboardAssetStats,
+  collectStoryboardAssetRefs,
+  StoryboardAssetMeta,
+  StoryboardAssetStats,
+  StoryboardAssetRef,
+  storyboardAssetStatsEqual,
+} from "@/lib/storyboardImportAssets";
 import { validateFields } from "@/middleware/middleware";
 import { normalizeProjectType, ProjectTypes } from "@/constants/project";
 
 const router = express.Router();
 
-type AssetType = "role" | "scene" | "tool";
-
-type RoleSpec = {
-  name: string;
-  age?: string;
-  appearance?: string;
-  costume?: string;
-  personality?: string;
-};
-
-type SceneSpec = {
-  name: string;
-  time?: string;
-  color?: string;
-  elements?: string;
-  atmosphere?: string;
-};
-
-type ImportMeta = {
-  roles?: RoleSpec[];
-  scenes?: SceneSpec[];
-};
+type ImportMeta = StoryboardAssetMeta;
+type AssetRef = StoryboardAssetRef;
 
 type StoryboardImportItem = {
   shotNo?: string;
@@ -45,6 +34,8 @@ type StoryboardImportItem = {
   roleNames?: string[];
   sceneNames?: string[];
   toolNames?: string[];
+  scene?: string;
+  visualContent?: string;
   props?: string;
 };
 
@@ -53,22 +44,6 @@ type StoryboardImportOptions = {
   useReferenceAssetDescriptions?: boolean;
   writeStoryboardIndex?: boolean;
 };
-
-type AssetRef = {
-  name: string;
-  type: AssetType;
-  describe: string;
-};
-
-const assetNameFields: { key: "roleNames" | "sceneNames" | "toolNames"; type: AssetType }[] = [
-  { key: "roleNames", type: "role" },
-  { key: "sceneNames", type: "scene" },
-  { key: "toolNames", type: "tool" },
-];
-
-function normalizeName(name: string) {
-  return name.trim();
-}
 
 function uniqueNumbers(ids: number[]) {
   return [...new Set(ids.filter((id) => Number.isInteger(id) && id > 0))];
@@ -121,65 +96,8 @@ function formatDateName() {
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
 }
 
-function buildRoleDescribe(role: RoleSpec) {
-  return [
-    `角色：${role.name}`,
-    role.age ? `年龄：${role.age}` : "",
-    role.appearance ? `外貌特征：${role.appearance}` : "",
-    role.costume ? `服装：${role.costume}` : "",
-    role.personality ? `性格关键词：${role.personality}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-function buildSceneDescribe(scene: SceneSpec) {
-  return [
-    `场景：${scene.name}`,
-    scene.time ? `时间：${scene.time}` : "",
-    scene.color ? `色调：${scene.color}` : "",
-    scene.elements ? `元素：${scene.elements}` : "",
-    scene.atmosphere ? `氛围：${scene.atmosphere}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-function buildToolDescribe(name: string, item: StoryboardImportItem) {
-  return [
-    `道具：${name}`,
-    item.shotNo ? `出现镜头：${item.shotNo}` : "",
-    item.props ? `道具/陈设上下文：${item.props}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-function findRoleDescribe(name: string, meta?: ImportMeta) {
-  const role = meta?.roles?.find((item) => normalizeName(item.name) === name);
-  return role ? buildRoleDescribe(role) : name;
-}
-
-function findSceneDescribe(name: string, meta?: ImportMeta) {
-  const scene = meta?.scenes?.find((item) => normalizeName(item.name) === name || name.includes(normalizeName(item.name)) || normalizeName(item.name).includes(name));
-  return scene ? buildSceneDescribe(scene) : name;
-}
-
-function collectAssetRefs(item: StoryboardImportItem, meta?: ImportMeta): AssetRef[] {
-  const refs: AssetRef[] = [];
-  for (const field of assetNameFields) {
-    for (const name of item[field.key] ?? []) {
-      const normalizedName = normalizeName(name);
-      if (!normalizedName) continue;
-      const describe = field.type === "role" ? findRoleDescribe(normalizedName, meta) : field.type === "scene" ? findSceneDescribe(normalizedName, meta) : buildToolDescribe(normalizedName, item);
-      refs.push({ name: normalizedName, type: field.type, describe });
-    }
-  }
-  return [...new Map(refs.map((item) => [`${item.type}:${item.name}`, item])).values()];
-}
-
 async function ensureAssets(db: any, projectId: number, item: StoryboardImportItem, meta?: ImportMeta, options?: StoryboardImportOptions) {
-  const assetRefs = collectAssetRefs(item, meta);
+  const assetRefs = collectStoryboardAssetRefs(item, meta);
   if (!assetRefs.length) return item.associateAssetsIds ?? [];
 
   const existingAssets = await db("o_assets")
@@ -219,7 +137,9 @@ async function ensureAssets(db: any, projectId: number, item: StoryboardImportIt
     )
     .select("id", "name", "type");
   const nextAssetKeyMap = new Map(allAssets.map((asset: { id: number; name: string; type: string }) => [`${asset.type}:${asset.name}`, asset.id]));
-  const autoAssetIds = assetRefs.map((asset) => Number(nextAssetKeyMap.get(`${asset.type}:${asset.name}`))).filter((id) => Number.isFinite(id));
+  const autoAssetIds = assetRefs.map((asset) => Number(nextAssetKeyMap.get(`${asset.type}:${asset.name}`)));
+  const unresolvedAssets = assetRefs.filter((_asset, index) => !Number.isFinite(autoAssetIds[index]));
+  if (unresolvedAssets.length) throw new Error(`资产创建后无法解析 ID：${unresolvedAssets.map((asset) => `${asset.type}:${asset.name}`).join("、")}`);
   return uniqueNumbers([...(item.associateAssetsIds ?? []), ...autoAssetIds]);
 }
 
@@ -279,6 +199,8 @@ export default router.post(
         roleNames: z.array(z.string()).optional(),
         sceneNames: z.array(z.string()).optional(),
         toolNames: z.array(z.string()).optional(),
+        scene: z.string().optional(),
+        visualContent: z.string().optional(),
         props: z.string().optional(),
       }),
     ),
@@ -286,6 +208,14 @@ export default router.post(
       .object({
         roles: z.array(z.object({ name: z.string(), age: z.string().optional(), appearance: z.string().optional(), costume: z.string().optional(), personality: z.string().optional() })).optional(),
         scenes: z.array(z.object({ name: z.string(), time: z.string().optional(), color: z.string().optional(), elements: z.string().optional(), atmosphere: z.string().optional() })).optional(),
+        assetStats: z
+          .object({
+            roles: z.number().int().nonnegative(),
+            scenes: z.number().int().nonnegative(),
+            tools: z.number().int().nonnegative(),
+            total: z.number().int().nonnegative(),
+          })
+          .optional(),
       })
       .optional(),
     options: z
@@ -300,8 +230,13 @@ export default router.post(
     scriptName: z.string().optional().nullable(),
   }),
   async (req, res) => {
-    const { data, projectId, scriptName, meta, options } = req.body as { data: StoryboardImportItem[]; scriptId?: number | null; projectId: number; scriptName?: string | null; meta?: ImportMeta; options?: StoryboardImportOptions };
-    if (!data.length) return res.status(400).send(error("数据不能为空"));
+    const { data: submittedData, projectId, scriptName, meta, options } = req.body as { data: StoryboardImportItem[]; scriptId?: number | null; projectId: number; scriptName?: string | null; meta?: ImportMeta; options?: StoryboardImportOptions };
+    if (!submittedData.length) return res.status(400).send(error("数据不能为空"));
+    const data = associateBatchStoryboardTools(submittedData);
+    const effectiveAssetStats = buildStoryboardAssetStats(data);
+    if (meta?.assetStats && !storyboardAssetStatsEqual(meta.assetStats, effectiveAssetStats)) {
+      return res.status(400).send(error(`资产统计与分镜行资产不一致，请重新解析分镜表后再提交。提交统计：${JSON.stringify(meta.assetStats)}；实际统计：${JSON.stringify(effectiveAssetStats)}`));
+    }
 
     try {
       const result = await db.transaction(async (trx: any) => {

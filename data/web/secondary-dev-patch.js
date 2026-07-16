@@ -297,9 +297,9 @@
   function renderPreview(rows, targetId){
     const box = $(targetId || 'tf-sd-preview'); if(!box) return;
     if (!rows.length) { box.innerHTML = '<div class="tf-sd-help" style="padding:10px">暂无解析结果</div>'; return; }
-    const head = '<table class="tf-sd-table"><thead><tr><th>镜号</th><th>画面内容</th><th>时长</th><th>景别</th><th>镜头运动</th><th>场景/轨道</th><th>角色</th><th>道具</th><th>台词/旁白</th><th>音效/配乐</th><th>备注</th></tr></thead><tbody>';
+    const head = '<table class="tf-sd-table"><thead><tr><th>镜号</th><th>画面内容</th><th>时长</th><th>景别</th><th>镜头运动</th><th>原始场景/轨道</th><th>识别场景资产</th><th>角色</th><th>道具</th><th>台词/旁白</th><th>音效/配乐</th><th>备注</th></tr></thead><tbody>';
     const body = rows.slice(0,80).map(function(r,i){
-      return '<tr><td>'+escapeHtml(r.shotNo||i+1)+'</td><td>'+escapeHtml(r.visualContent||r.videoDesc||r.prompt||'')+'</td><td>'+escapeHtml(r.duration||'')+'</td><td>'+escapeHtml(r.shotSize||'')+'</td><td>'+escapeHtml(r.cameraMove||'')+'</td><td>'+escapeHtml(r.scene||r.track||'')+'</td><td>'+escapeHtml((r.roleNames||[]).join('、'))+'</td><td>'+escapeHtml((r.toolNames||[]).join('、'))+'</td><td>'+escapeHtml(r.dialogue||'')+'</td><td>'+escapeHtml(r.audio||'')+'</td><td>'+escapeHtml(r.remark||'')+'</td></tr>';
+      return '<tr><td>'+escapeHtml(r.shotNo||i+1)+'</td><td>'+escapeHtml(r.visualContent||r.videoDesc||r.prompt||'')+'</td><td>'+escapeHtml(r.duration||'')+'</td><td>'+escapeHtml(r.shotSize||'')+'</td><td>'+escapeHtml(r.cameraMove||'')+'</td><td>'+escapeHtml(r.scene||r.track||'')+'</td><td>'+escapeHtml((r.sceneNames||[]).join('、'))+'</td><td>'+escapeHtml((r.roleNames||[]).join('、'))+'</td><td>'+escapeHtml((r.toolNames||[]).join('、'))+'</td><td>'+escapeHtml(r.dialogue||'')+'</td><td>'+escapeHtml(r.audio||'')+'</td><td>'+escapeHtml(r.remark||'')+'</td></tr>';
     }).join('');
     const foot = '</tbody></table>' + (rows.length>80?'<div class="tf-sd-help" style="padding:8px">仅展示前 80 条，共 '+rows.length+' 条</div>':'');
     box.innerHTML = head + body + foot;
@@ -346,8 +346,6 @@
     const roleNames = new Set();
     const sceneNames = new Set();
     const toolNames = new Set();
-    (meta && meta.roles || []).forEach(function(item){ if (item && item.name) roleNames.add(String(item.name).trim()); });
-    (meta && meta.scenes || []).forEach(function(item){ if (item && item.name) sceneNames.add(String(item.name).trim()); });
     (rows || []).forEach(function(row){
       (row.roleNames || []).forEach(function(name){ if (name) roleNames.add(String(name).trim()); });
       (row.sceneNames || []).forEach(function(name){ if (name) sceneNames.add(String(name).trim()); });

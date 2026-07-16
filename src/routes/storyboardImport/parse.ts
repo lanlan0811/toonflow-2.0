@@ -5,6 +5,12 @@ import os from "os";
 import path from "path";
 import { z } from "zod";
 import { error, success } from "@/lib/responseFormat";
+import {
+  associateBatchStoryboardTools,
+  buildStoryboardAssetStats,
+  findStoryboardReferenceGaps,
+  StoryboardAssetStats,
+} from "@/lib/storyboardImportAssets";
 import { validateFields } from "@/middleware/middleware";
 
 const router = express.Router();
@@ -35,13 +41,6 @@ type MusicSpec = {
 
 type SubtitleSpec = Record<string, string>;
 
-type AssetStats = {
-  roles: number;
-  scenes: number;
-  tools: number;
-  total: number;
-};
-
 type ImportMeta = {
   project?: {
     productionSpec?: string;
@@ -52,7 +51,7 @@ type ImportMeta = {
   scenes?: SceneSpec[];
   music?: MusicSpec[];
   subtitle?: SubtitleSpec;
-  assetStats?: AssetStats;
+  assetStats?: StoryboardAssetStats;
 };
 
 type ImportRow = {
@@ -193,10 +192,11 @@ function normalizeToolName(value: string): string {
 
 function pickKnownScenes(scene: string, scenes: SceneSpec[] = []): string[] {
   if (!scene) return [];
-  const matched = scenes
-    .map((item) => cleanText(item.name))
-    .filter((name) => name && (scene.includes(name) || name.includes(scene)));
-  return matched.length ? unique(matched) : [scene];
+  const sceneNames = unique(scenes.map((item) => cleanText(item.name)).filter(Boolean));
+  const exact = sceneNames.find((name) => name === scene);
+  if (exact) return [exact];
+  const matched = sceneNames.filter((name) => scene.includes(name) || name.includes(scene)).sort((a, b) => b.length - a.length);
+  return matched.length ? [matched[0]] : [scene];
 }
 
 function getAliasValue(record: Record<string, unknown>, key: keyof typeof headerAliases) {
@@ -709,29 +709,25 @@ function decodeBase64Content(base64: string) {
 }
 
 function mergeWarnings(parsed: ParsedImport): ParsedImport {
+  const data = associateBatchStoryboardTools(parsed.data);
   const warnings = [...parsed.warnings];
-  parsed.data.forEach((row, index) => {
+  data.forEach((row, index) => {
     if (!row.shotNo) warnings.push(`第 ${index + 1} 条分镜缺少镜号`);
-    const durationIssue = durationIssues.get(row);
+    const durationIssue = durationIssues.get(parsed.data[index]);
     if (durationIssue === "missing") warnings.push(`第 ${index + 1} 条分镜缺少时长，已使用默认 3 秒`);
     if (durationIssue === "invalid") warnings.push(`第 ${index + 1} 条分镜时长异常，已使用默认 3 秒`);
     if (!row.visualContent && !row.videoDesc) warnings.push(`第 ${index + 1} 条分镜缺少画面内容`);
   });
 
-  const roleNames = unique((parsed.meta.roles ?? []).map((item) => item.name));
-  const sceneNames = unique((parsed.meta.scenes ?? []).map((item) => item.name));
-  const toolNames = unique(parsed.data.flatMap((row) => row.toolNames));
-  const assetStats: AssetStats = {
-    roles: roleNames.length,
-    scenes: sceneNames.length,
-    tools: toolNames.length,
-    total: roleNames.length + sceneNames.length + toolNames.length,
-  };
-  if (assetStats.total === 0) warnings.push("阻断警告：未解析到任何原始资产（角色/场景/道具），请补充资产信息后再提交");
-  return { ...parsed, meta: { ...parsed.meta, assetStats }, warnings: unique(warnings) };
+  const assetStats = buildStoryboardAssetStats(data);
+  const referenceGaps = findStoryboardReferenceGaps(data, parsed.meta);
+  if (referenceGaps.unusedRoles.length) warnings.push(`角色参考未被任何分镜使用，未计入待入库资产：${referenceGaps.unusedRoles.join("、")}`);
+  if (referenceGaps.missingScenes.length) warnings.push(`以下分镜场景缺少场景美术参考，将按场景名称入库：${referenceGaps.missingScenes.join("、")}`);
+  if (assetStats.total === 0) warnings.push("未解析到任何行级命名资产（角色/场景/道具）；纯文本分镜或仅关联既有资产的导入仍可提交");
+  return { ...parsed, data, meta: { ...parsed.meta, assetStats }, warnings: unique(warnings) };
 }
 
-async function parseContent(params: { content?: string; base64?: string; format?: string; filename?: string; mimeType?: string }): Promise<ParsedImport> {
+export async function parseStoryboardImportContent(params: { content?: string; base64?: string; format?: string; filename?: string; mimeType?: string }): Promise<ParsedImport> {
   const { content, base64, format = "auto", filename = "", mimeType = "" } = params;
   const lowerName = filename.toLowerCase();
   const isDocx = format === "docx" || lowerName.endsWith(".docx") || mimeType.includes("wordprocessingml.document");
@@ -762,7 +758,7 @@ export default router.post(
   }),
   async (req, res) => {
     try {
-      const parsed = await parseContent(req.body);
+      const parsed = await parseStoryboardImportContent(req.body);
       res.status(200).send(
         success({
           data: parsed.data,
