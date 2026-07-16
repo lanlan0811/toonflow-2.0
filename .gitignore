@@ -2,6 +2,9 @@
 # dependencies (bun install)
 node_modules
 .vscode
+.zcode
+.trae
+
 # output
 out
 dist
@@ -58,3 +61,7 @@ version.txt
 
 # Local project instructions
 AGENTS.md
+
+# lical project AI-model-test&shot-list
+data/ai-model-test/*
+data/shot-list/*
