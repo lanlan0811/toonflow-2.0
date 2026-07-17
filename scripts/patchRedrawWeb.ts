@@ -46,11 +46,29 @@ replaceSigned(
   "70d4580074075300f71b300bfbf8aaeba7da4d8b60b893609a9ef0884e27a550",
 );
 
-if (!html.includes("TOONFLOW_REDRAW_STUDIO_V1")) {
-  if (!html.includes("</head>") || !html.includes("</body>")) throw new Error("index.html 缺少 head/body 结束标签");
-  html = html.replace("</head>", '  <!-- TOONFLOW_REDRAW_STUDIO_V1 -->\n<link rel="stylesheet" href="./redraw-studio.css?v=20260717">\n</head>');
-  html = html.replace("</body>", '  <!-- TOONFLOW_REDRAW_STUDIO_V1 -->\n<script src="./redraw-studio.js?v=20260717"></script>\n</body>');
+const redrawStyleBlock =
+  '  <!-- TOONFLOW_REDRAW_STUDIO_V1 -->\n<link rel="stylesheet" href="./redraw-studio.css?v=20260717">\n';
+const redrawScriptBlock =
+  '  <!-- TOONFLOW_REDRAW_STUDIO_V1 -->\n<script src="./redraw-studio.js?v=20260717"></script>\n';
+
+// The application bundle is inlined and contains literal </head> / </body>
+// strings. Always remove a previous injection and target the final document
+// closing tags, otherwise an injected </script> terminates the module early.
+html = html.replaceAll(redrawStyleBlock, "").replaceAll(redrawScriptBlock, "");
+
+function insertBeforeFinalTag(tag: "</head>" | "</body>", block: string) {
+  const position = html.lastIndexOf(tag);
+  if (position < 0) throw new Error(`index.html missing final ${tag}`);
+  const tagEnd = position + tag.length;
+  const suffix = html
+    .slice(tagEnd)
+    .replace(/^[\t ]+(?=\r?\n)/, "")
+    .replace(/^\r\n/, "\n");
+  html = `${html.slice(0, position)}${block}${tag}${suffix}`;
 }
+
+insertBeforeFinalTag("</head>", redrawStyleBlock);
+insertBeforeFinalTag("</body>", redrawScriptBlock);
 
 const tempPath = `${indexPath}.redraw-patch.tmp`;
 fs.writeFileSync(tempPath, html, "utf8");

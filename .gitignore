@@ -1,12 +1,9 @@
 .devtools
 # dependencies (bun install)
-node_modules
-.vscode
-.zcode
+node_modules/
+.vscode/*
+.zcode/*
 .codex/*
-!.codex/plans/
-.codex/plans/*
-!.codex/plans/redraw-project.md
 
 # output
 out
