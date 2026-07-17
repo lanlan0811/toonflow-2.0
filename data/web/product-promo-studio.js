@@ -14,6 +14,7 @@
   const POLL_INTERVAL = 3000;
   const STAGE_WIDTH = 3200;
   const STAGE_HEIGHT = 2200;
+  const PROMPT_PRESET_VERSION = 1;
 
   const ICONS = {
     promo: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 15.5V8.7a1 1 0 0 1 1-1h3.2l7-3.2a1 1 0 0 1 1.4.9v13.4a1 1 0 0 1-1.4.9l-7-3.2H5a1 1 0 0 1-1-1Z" stroke-width="1.8"/><path d="m8.2 16.5 1.2 3H6.5l-1-3M19 9.2c1.3 1.2 1.3 4.4 0 5.6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -112,6 +113,59 @@
   function isPromoProject(project) {
     if (!project) return false;
     return String(project.type || "") === PROMO_MARKER || String(project.intro || "").startsWith(PROMO_MARKER);
+  }
+
+  function productPromptBrief(project) {
+    const description = String(getProjectDescription(project) || "").trim();
+    return description || "未提供额外产品描述；仅呈现参考图中可以确认的产品外观、材质与可见特征，不虚构功能、参数、认证或使用效果。";
+  }
+
+  function enterpriseImagePrompt(project) {
+    return [
+      "【制作目标】为企业品牌宣传片制作可直接用于商业发布的产品主视觉关键帧，画面写实、可信、精致，达到高端品牌广告与专业商业摄影标准。",
+      `【产品信息】${productPromptBrief(project)}`,
+      "【主体一致性】以参考图中的产品为唯一核心主体；准确保留产品结构、比例、材质、颜色、接口、包装和可识别品牌元素，不擅自改变工业设计，不添加不存在的部件或功能。",
+      "【构图与场景】主体层级明确、视觉重心稳定，采用简洁有秩序的商业构图；背景、台面和道具仅用于强化产品定位与核心卖点，并预留安全的标题和品牌文案空间。",
+      "【光影与质感】使用专业影棚级主光、辅光和轮廓光，控制高光与阴影层次；材质反射真实，边缘干净，细节锐利，色彩统一，动态范围自然，具有高级但不过度修饰的品牌质感。",
+      "【质量控制】避免结构变形、比例错误、重复产品、错误文字或 Logo、杂乱背景、廉价塑料感、过曝、死黑、噪点、模糊、锯齿、水印和任何与产品无关的元素。"
+    ].join("\n");
+  }
+
+  function enterpriseVideoPrompt(project) {
+    return [
+      "【制作目标】制作一条企业生产级的单镜头产品宣传片，整体达到品牌官网、发布会、电商旗舰页和商业广告投放标准；视觉语言克制、高级、可信。",
+      `【产品信息】${productPromptBrief(project)}`,
+      "【主体一致性】以参考图中的产品为唯一核心主体，全程严格保持产品结构、比例、材质、颜色、接口、包装和品牌元素一致；不得变形、融化、闪烁、漂移、增减部件或变成其他产品。",
+      "【镜头设计】从稳定清晰的产品英雄镜头开始，在设定时长内使用平滑、可控的电影级推进、轻微环绕或微距细节运动，突出产品轮廓、材质与关键卖点；运动路径明确，避免无意义晃动和突然变焦。",
+      "【节奏与画面】开场快速建立产品识别，中段展示核心细节，结尾回到稳定、可停留的品牌定帧；曝光、白平衡和景深连续，背景与光影变化自然，主体始终清晰且处于主要视觉层级。",
+      "【质量控制】保证时序连续、边缘稳定、材质反射真实、运动模糊合理；避免抖动、跳帧、闪烁、重影、穿模、透视突变、错误文字或 Logo、额外物体、水印、低清晰度和过度特效。"
+    ].join("\n");
+  }
+
+  function usesLegacyPrompt(node, project) {
+    if (!node || !node.data || !["image", "video"].includes(node.type)) return false;
+    const prompt = String(node.data.prompt || "").trim();
+    if (!prompt) return true;
+    const description = String(getProjectDescription(project) || "").trim();
+    if (node.type === "image") {
+      return [
+        description,
+        "突出产品主体，商业摄影质感，细节清晰，光影高级",
+        "商业产品摄影，主体清晰，光影精致"
+      ].filter(Boolean).includes(prompt);
+    }
+    const subject = description || "产品展示";
+    return [
+      `${subject}。镜头运动自然，突出产品卖点，商业宣传片质感。`,
+      `${subject}。镜头运动流畅，突出产品主体与质感。`
+    ].includes(prompt);
+  }
+
+  function applyEnterprisePrompt(node, project) {
+    if (!usesLegacyPrompt(node, project)) return false;
+    node.data.prompt = node.type === "image" ? enterpriseImagePrompt(project) : enterpriseVideoPrompt(project);
+    node.data.promptPresetVersion = PROMPT_PRESET_VERSION;
+    return true;
   }
 
   function modelKey(model) {
@@ -724,7 +778,8 @@
           type: "image",
           position: { x: 470, y: 145 },
           data: {
-            prompt: getProjectDescription(project) || "突出产品主体，商业摄影质感，细节清晰，光影高级",
+            prompt: enterpriseImagePrompt(project),
+            promptPresetVersion: PROMPT_PRESET_VERSION,
             model: project.imageModel || modelKey(app.imageModels[0]),
             ratio: project.videoRatio || "16:9",
             quality: project.imageQuality || "2K",
@@ -741,7 +796,8 @@
           type: "video",
           position: { x: 880, y: 120 },
           data: {
-            prompt: `${getProjectDescription(project) || "产品展示"}。镜头运动自然，突出产品卖点，商业宣传片质感。`,
+            prompt: enterpriseVideoPrompt(project),
+            promptPresetVersion: PROMPT_PRESET_VERSION,
             model: project.videoModel || modelKey(app.videoModels[0]),
             mode: project.mode || "singleImage",
             resolution: "",
@@ -771,7 +827,8 @@
     }
     const validTypes = new Set(["upload", "image", "video"]);
     const nodes = Array.isArray(raw.nodes)
-      ? raw.nodes.filter((node) => node && node.id && validTypes.has(node.type)).map((node) => ({
+      ? raw.nodes.filter((node) => node && node.id && validTypes.has(node.type)).map((node) => {
+        const normalized = {
           id: String(node.id),
           type: node.type,
           position: {
@@ -779,7 +836,10 @@
             y: clamp(toNumber(node.position && node.position.y, 100), -1000, STAGE_HEIGHT - 100)
           },
           data: Object.assign({}, node.data || {})
-        }))
+        };
+        applyEnterprisePrompt(normalized, project);
+        return normalized;
+      })
       : [];
     if (!nodes.length) return createDefaultCanvas(project);
     const ids = new Set(nodes.map((node) => node.id));
@@ -815,8 +875,9 @@
     } catch (_error) {
       localStorage.removeItem(localKey(project.id));
     }
+    const needsPromptUpgrade = raw && Array.isArray(raw.nodes) && raw.nodes.some((node) => usesLegacyPrompt(node, project));
     const canvas = normalizeCanvas(raw, project);
-    if (!raw || raw.version !== STORAGE_VERSION) {
+    if (!raw || raw.version !== STORAGE_VERSION || needsPromptUpgrade) {
       try {
         localStorage.setItem(localKey(project.id), JSON.stringify(canvas));
       } catch (_error) {
@@ -1102,7 +1163,8 @@
       node.data = { url: "", status: "idle", error: "", storyboardId: null, registeredUrl: "" };
     } else if (type === "image") {
       node.data = {
-        prompt: getProjectDescription(app.currentProject) || "商业产品摄影，主体清晰，光影精致",
+        prompt: enterpriseImagePrompt(app.currentProject),
+        promptPresetVersion: PROMPT_PRESET_VERSION,
         model: app.currentProject.imageModel || modelKey(app.imageModels[0]),
         ratio: app.currentProject.videoRatio || "16:9",
         quality: app.currentProject.imageQuality || "2K",
@@ -1115,7 +1177,8 @@
       };
     } else {
       node.data = {
-        prompt: `${getProjectDescription(app.currentProject) || "产品展示"}。镜头运动流畅，突出产品主体与质感。`,
+        prompt: enterpriseVideoPrompt(app.currentProject),
+        promptPresetVersion: PROMPT_PRESET_VERSION,
         model: app.currentProject.videoModel || modelKey(app.videoModels[0]),
         mode: app.currentProject.mode || "singleImage",
         resolution: "",
