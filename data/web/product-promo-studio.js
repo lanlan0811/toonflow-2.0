@@ -267,17 +267,26 @@
     return error && error.message ? error.message : String(error || "未知错误");
   }
 
+  function currentHashRoute() {
+    const raw = String(location.hash || "").replace(/^#/, "");
+    const queryStart = raw.indexOf("?");
+    const rawPath = queryStart >= 0 ? raw.slice(0, queryStart) : raw;
+    const path = (rawPath.startsWith("/") ? rawPath : `/${rawPath}`).replace(/\/+$/, "") || "/";
+    return {
+      path,
+      query: queryStart >= 0 ? raw.slice(queryStart + 1) : ""
+    };
+  }
+
   function isPromoRoute() {
-    return location.pathname.includes(ROUTE_PATH) || location.hash.includes(ROUTE_PATH);
+    return currentHashRoute().path === ROUTE_PATH;
   }
 
   function routeProjectId() {
     try {
-      if (location.hash.includes(ROUTE_PATH)) {
-        const query = location.hash.split("?")[1] || "";
-        return new URLSearchParams(query).get("projectId") || "";
-      }
-      return new URL(location.href).searchParams.get("projectId") || "";
+      const route = currentHashRoute();
+      if (route.path !== ROUTE_PATH) return "";
+      return new URLSearchParams(route.query).get("projectId") || "";
     } catch (_error) {
       return "";
     }
@@ -285,16 +294,9 @@
 
   function navigatePromo(projectId, replace) {
     const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
-    if (location.protocol === "file:") {
-      const target = `#${ROUTE_PATH}${query}`;
-      if (replace) location.replace(target);
-      else location.hash = target;
-    } else {
-      const target = `${ROUTE_PATH}${query}`;
-      if (replace) history.replaceState({}, "", target);
-      else history.pushState({}, "", target);
-      window.dispatchEvent(new Event("tf-product-promo-navigation"));
-    }
+    const target = `#${ROUTE_PATH}${query}`;
+    if (replace) location.replace(target);
+    else location.hash = target;
     scheduleRouteRender();
   }
 
@@ -345,13 +347,26 @@
 
   function cleanupPromoView() {
     stopPolling();
+    if (app.saveTimer) {
+      if (app.canvas && app.currentProject) saveCanvas(true);
+      else {
+        clearTimeout(app.saveTimer);
+        app.saveTimer = null;
+      }
+    }
     app.routeKey = "";
     app.currentProject = null;
     app.canvas = null;
+    app.selectedEdgeId = null;
+    app.connecting = null;
     if (app.root) app.root.remove();
     if (app.host) app.host.classList.remove("tf-promo-host-active");
     app.root = null;
     app.host = null;
+  }
+
+  function isActivePromoView(routeKey) {
+    return isPromoRoute() && app.routeKey === routeKey && Boolean(app.root && app.root.isConnected);
   }
 
   function scheduleRouteRender() {
@@ -366,7 +381,7 @@
     injectMenu();
     hidePromoCardsFromOrdinaryProjects();
     if (!isPromoRoute()) {
-      if (app.root) cleanupPromoView();
+      cleanupPromoView();
       return;
     }
     const root = ensureRoot();
@@ -449,16 +464,19 @@
   }
 
   async function renderProjectPage() {
+    const expectedRouteKey = "projects";
     app.currentProject = null;
     app.canvas = null;
     renderLoading("正在加载宣传片项目…");
     try {
       await Promise.all([loadProjects(), loadModels(false)]);
     } catch (error) {
-      renderFatalError("宣传片项目加载失败", error, () => renderProjectPage());
+      if (isActivePromoView(expectedRouteKey)) {
+        renderFatalError("宣传片项目加载失败", error, () => renderProjectPage());
+      }
       return;
     }
-    if (!app.root || routeProjectId()) return;
+    if (!isActivePromoView(expectedRouteKey) || routeProjectId()) return;
     app.root.innerHTML = "";
     const page = make("div", "tf-promo-page");
     const createTop = button("新建宣传片", "tf-promo-button-primary", "plus");
@@ -1000,21 +1018,26 @@
   }
 
   async function openProject(projectId) {
+    const expectedRouteKey = `editor:${projectId}`;
     renderLoading("正在准备宣传片工作区…");
     try {
       await Promise.all([loadProjects(), loadModels(false)]);
+      if (!isActivePromoView(expectedRouteKey) || String(routeProjectId()) !== String(projectId)) return;
       const project = app.projects.find((item) => String(item.id) === String(projectId));
       if (!project) throw new Error("宣传片项目不存在或已被删除");
       app.currentProject = project;
       app.canvas = loadCanvas(project);
       const videoNodes = app.canvas.nodes.filter((node) => node.type === "video");
       await Promise.all(videoNodes.map((node) => applyVideoDefaults(node, false).catch(() => null)));
+      if (!isActivePromoView(expectedRouteKey) || String(routeProjectId()) !== String(projectId)) return;
       renderEditor();
       ensureInternalScript(true).catch((error) => toast(errorMessage(error), "error"));
       const unfinished = videoNodes.find((node) => node.data.videoId && ["generating", "queued", "running"].includes(node.data.status));
       if (unfinished) startPolling(unfinished.id);
     } catch (error) {
-      renderFatalError("工作区打开失败", error, () => openProject(projectId));
+      if (isActivePromoView(expectedRouteKey)) {
+        renderFatalError("工作区打开失败", error, () => openProject(projectId));
+      }
     }
   }
 
@@ -2282,6 +2305,9 @@
   }
 
   function bootstrap() {
+    if (typeof window.__TOONFLOW_NORMALIZE_PRODUCT_PROMO_URL__ === "function") {
+      window.__TOONFLOW_NORMALIZE_PRODUCT_PROMO_URL__();
+    }
     installNavigationHooks();
     app.observer = new MutationObserver(scheduleRouteRender);
     app.observer.observe(document.documentElement, { childList: true, subtree: true });
