@@ -13,6 +13,23 @@ export default router.post(
   }),
   async (req, res) => {
     const { id } = req.body;
+    await u.db.transaction(async (trx) => {
+      for (const table of [
+        "o_productFactoryJob",
+        "o_productFactoryArtifact",
+        "o_productFactoryWorkflow",
+        "o_productFactoryReference",
+        "o_productFactoryItem",
+        "o_productFactoryConfig",
+      ]) {
+        if (await trx.schema.hasTable(table)) await trx(table).where("projectId", id).delete();
+      }
+    });
+    try {
+      await u.oss.deleteDirectory(`product-factory/${id}`);
+    } catch {
+      // 商品视觉工厂目录不存在时无需中断普通项目删除。
+    }
     //删除项目
     await u.db("o_project").where("id", id).delete();
     await u.db("o_agentWorkData").where("projectId", id).delete();

@@ -27,7 +27,7 @@ export default router.post(
     };
     if (projectType != null) {
       const normalizedProjectType = normalizeProjectType(projectType);
-      if (!normalizedProjectType) return res.status(400).send(error("项目类型仅支持：基于小说原文、基于剧本、基于分镜表"));
+      if (!normalizedProjectType) return res.status(400).send(error("项目类型仅支持：基于小说原文、基于剧本、基于分镜表、商品视觉工厂"));
       updateData.projectType = normalizedProjectType;
     }
 

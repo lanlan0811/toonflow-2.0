@@ -25,10 +25,11 @@ export default router.post(
   async (req, res) => {
     const { projectType, name, intro, type, directorManual, artStyle, videoRatio, imageModel, videoModel, imageQuality, mode } = req.body;
     const normalizedProjectType = normalizeProjectType(projectType);
-    if (!normalizedProjectType) return res.status(400).send(error("项目类型仅支持：基于小说原文、基于剧本、基于分镜表"));
+    if (!normalizedProjectType) return res.status(400).send(error("项目类型仅支持：基于小说原文、基于剧本、基于分镜表、商品视觉工厂"));
+    const id = Date.now();
 
     await u.db("o_project").insert({
-      id: Date.now(),
+      id,
       projectType: normalizedProjectType,
       name,
       intro,
@@ -44,6 +45,6 @@ export default router.post(
       mode,
     });
 
-    res.status(200).send(success({ message: "新增项目成功" }));
+    res.status(200).send(success({ id, message: "新增项目成功" }));
   },
 );

@@ -929,8 +929,11 @@ export default async (knex: Knex, forceInit: boolean = false): Promise<void> => 
         ];
         await Promise.all(
           list.map(async (item) => {
-            const embedding = await getEmbedding(item.description);
-            item.embedding = JSON.stringify(embedding);
+            if (process.env.TOONFLOW_SKIP_EMBEDDING_INIT === "1") item.embedding = "[]";
+            else {
+              const embedding = await getEmbedding(item.description);
+              item.embedding = JSON.stringify(embedding);
+            }
           }),
         );
         await knex("o_skillList").insert(list);

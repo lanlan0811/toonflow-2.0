@@ -34,7 +34,7 @@ const db = knex({
   useNullAsDefault: true,
 });
 
-(async () => {
+export const dbReady = (async () => {
   await initDB(db);
   await fixDB(db);
   if (process.env.NODE_ENV == "dev") initKnexType(db);
@@ -46,6 +46,8 @@ const dbClient = Object.assign(
   {
     schema: db.schema,
     transaction: db.transaction.bind(db),
+    destroy: db.destroy.bind(db),
+    ready: dbReady,
   },
 );
 export default dbClient;

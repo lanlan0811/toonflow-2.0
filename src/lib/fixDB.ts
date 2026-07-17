@@ -5,10 +5,12 @@ import { Knex } from "knex";
 import db from "@/utils/db";
 import { transform } from "sucrase";
 import rawVendorData from "./vendor.json";
+import ensureProductFactorySchema from "@/lib/productFactory/schema";
 
 const vendorData = rawVendorData as Record<string, string>;
 
 export default async (knex: Knex): Promise<void> => {
+  await ensureProductFactorySchema(knex);
   const addColumn = async (table: string, column: string, type: string) => {
     if (!(await knex.schema.hasTable(table))) return;
     if (!(await knex.schema.hasColumn(table, column))) {

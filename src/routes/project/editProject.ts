@@ -3,6 +3,7 @@ import u from "@/utils";
 import { z } from "zod";
 import { error, success } from "@/lib/responseFormat";
 import { normalizeProjectType } from "@/constants/project";
+import { markProductFactoryArtifactsInputChanged } from "@/lib/productFactory/service";
 import { validateFields } from "@/middleware/middleware";
 const router = express.Router();
 
@@ -26,7 +27,8 @@ export default router.post(
   async (req, res) => {
     const { id, name, intro, type, artStyle, videoRatio, directorManual, imageModel, videoModel, imageQuality, projectType, mode } = req.body;
     const normalizedProjectType = normalizeProjectType(projectType);
-    if (!normalizedProjectType) return res.status(400).send(error("项目类型仅支持：基于小说原文、基于剧本、基于分镜表"));
+    if (!normalizedProjectType) return res.status(400).send(error("项目类型仅支持：基于小说原文、基于剧本、基于分镜表、商品视觉工厂"));
+    const previous = await u.db("o_project").where("id", id).first();
 
     await u.db("o_project").where("id", id).update({
       name,
@@ -41,6 +43,9 @@ export default router.post(
       projectType: normalizedProjectType,
       mode,
     });
+    if (normalizedProjectType === "commerce" && previous && (previous.imageModel !== imageModel || previous.videoModel !== videoModel || previous.mode !== mode || previous.imageQuality !== imageQuality)) {
+      await markProductFactoryArtifactsInputChanged(id);
+    }
 
     res.status(200).send(success({ message: "编辑项目成功" }));
   },
