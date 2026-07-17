@@ -21,6 +21,45 @@
 >
 > 当前二次开发仓库：<https://gitee.com/lan0811/toonflaw-2.0>
 
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="50%">
+        <a href="https://github.com/HBAI-Ltd">
+          <img src="https://github.com/HBAI-Ltd.png?size=160" width="96" height="96" alt="HBAI-Ltd 头像" />
+        </a>
+        <br />
+        <strong>原创作者 · HBAI-Ltd</strong>
+        <br />
+        <sub>Toonflow 原项目作者与维护组织</sub>
+        <br /><br />
+        <a href="https://github.com/HBAI-Ltd">
+          <img src="https://img.shields.io/badge/GitHub-原创主页-181717?style=flat-square&amp;logo=github&amp;logoColor=white" alt="HBAI-Ltd GitHub 主页" />
+        </a>
+        <a href="https://gitee.com/HBAI-Ltd">
+          <img src="https://img.shields.io/badge/Gitee-原创主页-C71D23?style=flat-square&amp;logo=gitee&amp;logoColor=white" alt="HBAI-Ltd Gitee 主页" />
+        </a>
+      </td>
+      <td align="center" width="50%">
+        <a href="https://gitee.com/lan0811">
+          <img src="https://foruda.gitee.com/avatar/1769601315847069536/16529552_lan0811_1769601315.png" width="96" height="96" alt="Lan0811 头像" />
+        </a>
+        <br />
+        <strong>二次开发维护者 · Lan0811</strong>
+        <br />
+        <sub>当前扩展版本的开发与维护</sub>
+        <br /><br />
+        <a href="https://gitee.com/lan0811">
+          <img src="https://img.shields.io/badge/Gitee-我的主页-C71D23?style=flat-square&amp;logo=gitee&amp;logoColor=white" alt="Lan0811 Gitee 主页" />
+        </a>
+        <a href="https://gitee.com/lan0811/toonflaw-2.0">
+          <img src="https://img.shields.io/badge/Gitee-二开仓库-2F54EB?style=flat-square&amp;logo=gitee&amp;logoColor=white" alt="Toonflow 二次开发仓库" />
+        </a>
+      </td>
+    </tr>
+  </table>
+</div>
+
 ## 项目定位
 
 这是一个面向 AI 短剧、漫剧和产品宣传片生产的本地工作台。项目保留 Toonflow 原有的小说、剧本、资产、分镜和视频生产能力，并在此基础上补充了两条独立业务线：
@@ -134,6 +173,17 @@
 - Electron 桌面端与 HTTP 服务模式。
 
 ## 技术组成
+
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&amp;logo=typescript&amp;logoColor=white" alt="TypeScript 5" />
+  <img src="https://img.shields.io/badge/Node.js-24-5FA04E?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24" />
+  <img src="https://img.shields.io/badge/Express-5-000000?style=flat-square&amp;logo=express&amp;logoColor=white" alt="Express 5" />
+  <img src="https://img.shields.io/badge/SQLite-本地数据-003B57?style=flat-square&amp;logo=sqlite&amp;logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/Electron-40-47848F?style=flat-square&amp;logo=electron&amp;logoColor=white" alt="Electron 40" />
+  <img src="https://img.shields.io/badge/Socket.IO-4.x-010101?style=flat-square&amp;logo=socketdotio&amp;logoColor=white" alt="Socket.IO" />
+  <img src="https://img.shields.io/badge/Yarn-Classic-2C8EBB?style=flat-square&amp;logo=yarn&amp;logoColor=white" alt="Yarn Classic" />
+  <img src="https://img.shields.io/badge/Docker-Node_24-2496ED?style=flat-square&amp;logo=docker&amp;logoColor=white" alt="Docker" />
+</p>
 
 | 层级 | 主要技术 |
 | --- | --- |
