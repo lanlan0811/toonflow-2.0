@@ -3,6 +3,7 @@ import { devToolsMiddleware } from "@ai-sdk/devtools";
 import axios from "axios";
 import { transform } from "sucrase";
 import u from "@/utils";
+import { redrawAgentKeys, type RedrawAgentKey } from "@/constants/redraw";
 
 type AiType =
   | "scriptAgent"
@@ -20,7 +21,8 @@ type AiType =
   | "productionAgent:directorPlanAgent"
   | "productionAgent:storyboardGenAgent"
   | "productionAgent:storyboardPanelAgent"
-  | "productionAgent:storyboardTableAgent";
+  | "productionAgent:storyboardTableAgent"
+  | RedrawAgentKey;
 
 type FnName = "textRequest" | "imageRequest" | "videoRequest" | "ttsRequest";
 
@@ -41,7 +43,7 @@ const AiTypeValues: AiType[] = [
   "productionAgent:storyboardGenAgent",
   "productionAgent:storyboardPanelAgent",
   "productionAgent:storyboardTableAgent",
-  "universalAi",
+  ...redrawAgentKeys,
 ];
 async function resolveModelName(value: AiType | `${string}:${string}`): Promise<`${string}:${string}`> {
   if (AiTypeValues.includes(value as AiType)) {
