@@ -11,6 +11,7 @@
   const ROOT_ID = "tf-product-promo-root";
   const MENU_ID = "tf-product-promo-menu";
   const ROUTE_PATH = "/product-promo";
+  const ROUTE_NAME = "toonflow-product-promo";
   const POLL_INTERVAL = 3000;
   const STAGE_WIDTH = 3200;
   const STAGE_HEIGHT = 2200;
@@ -53,6 +54,7 @@
     pollTimer: null,
     renderTimer: null,
     observer: null,
+    vueRouteSyncing: false,
     apiRoot: null,
     apiRootPromise: null,
     scriptPromise: null
@@ -300,6 +302,47 @@
     scheduleRouteRender();
   }
 
+  function getVueRouter() {
+    const container = document.getElementById("app");
+    const vueApp = container && container.__vue_app__;
+    return vueApp && vueApp.config && vueApp.config.globalProperties
+      ? vueApp.config.globalProperties.$router || null
+      : null;
+  }
+
+  function ensureVuePromoRoute() {
+    const router = getVueRouter();
+    if (!router || typeof router.getRoutes !== "function" || typeof router.addRoute !== "function" || typeof router.hasRoute !== "function") return false;
+
+    if (!router.hasRoute(ROUTE_NAME)) {
+      const workbench = router.getRoutes().find((record) => record.path === "/workbench");
+      const layoutComponent = workbench && workbench.components && workbench.components.default;
+      if (!layoutComponent) return false;
+      router.addRoute({
+        path: ROUTE_PATH,
+        name: ROUTE_NAME,
+        component: layoutComponent,
+        meta: { title: "产品宣传片" }
+      });
+    }
+
+    const currentRoute = router.currentRoute && router.currentRoute.value;
+    if (isPromoRoute() && currentRoute && currentRoute.name !== ROUTE_NAME) {
+      if (!app.vueRouteSyncing) {
+        app.vueRouteSyncing = true;
+        const target = String(location.hash || `#${ROUTE_PATH}`).replace(/^#/, "");
+        Promise.resolve(router.replace(target))
+          .catch((error) => console.error("[Product Promo] 路由注册失败", error))
+          .finally(() => {
+            app.vueRouteSyncing = false;
+            scheduleRouteRender();
+          });
+      }
+      return false;
+    }
+    return true;
+  }
+
   function hidePromoCardsFromOrdinaryProjects() {
     if (isPromoRoute()) return;
     const onProjectPage = location.pathname.includes("/project") || location.hash.includes("/project");
@@ -378,6 +421,10 @@
   }
 
   async function renderForCurrentRoute() {
+    if (isPromoRoute() && !ensureVuePromoRoute()) {
+      window.setTimeout(scheduleRouteRender, 80);
+      return;
+    }
     injectMenu();
     hidePromoCardsFromOrdinaryProjects();
     if (!isPromoRoute()) {
