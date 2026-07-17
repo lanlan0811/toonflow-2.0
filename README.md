@@ -1,747 +1,389 @@
-﻿<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=200&section=header&text=Toonflow&fontSize=90&fontColor=ffffff&animation=fadeIn&fontAlignY=50" width="100%"/>
+# Toonflow 二次开发版
 
-<p>
-  <a href="https://github.com/HBAI-Ltd/Toonflow-app">
-    <img src="https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub" />
-  </a>
-  &nbsp;|&nbsp;
-  <a href="https://gitee.com/HBAI-Ltd/Toonflow-app">
-    <img src="https://img.shields.io/badge/Gitee-C71D23?style=flat-square&logo=gitee&logoColor=white" alt="Gitee" />
-  </a>
-  &nbsp;|&nbsp;
-  <a href="https://gitcode.com/HBAI-Ltd/Toonflow-app">
-    <img src="./docs/atomgitLogo.svg" alt="Atomgit" style="height:20px"/>
-  </a>
-</p>
-
-<p align="center">
-  <strong>简体中文</strong> | 
-  <a href="./docs/README.zhtw.md">繁體中文</a> | 
-  <a href="./docs/README.en.md">English</a> | 
-  <a href="./docs/README.th.md">ไทย</a> | 
-  <a href="./docs/README.vi.md">Tiếng Việt</a> | 
-  <a href="./docs/README.ja.md">日本語</a> | 
-  <a href="./docs/README.ru.md">Русский</a>
-</p>
-
-<div align="center">
-  <p align="center">
-    <img src="./docs/logo.png" alt="Toonflow Logo" height="120"/>
-  </p>
-
-  <p align="center">
-    <a href="https://git.io/typing-svg" target="_blank">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://readme-typing-svg.demolab.com?font=Fira+Code&size=40&duration=3000&pause=1000&color=FFFFFF&center=true&vCenter=true&width=600&lines=Toonflow;AI%E7%9F%AD%E5%89%A7%E5%B7%A5%E5%8E%82;%E5%8A%A8%E5%8A%A8%E6%89%8B%E6%8C%87%EF%BC%8C%E5%B0%8F%E8%AF%B4%E7%A7%92%E5%8F%98%E5%89%A7%E9%9B%86%EF%BC%81" />
-        <img alt="Typing SVG" src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=40&duration=3000&pause=1000&color=000000&center=true&vCenter=true&width=600&lines=Toonflow;AI%E7%9F%AD%E5%89%A7%E5%B7%A5%E5%8E%82;%E5%8A%A8%E5%8A%A8%E6%89%8B%E6%8C%87%EF%BC%8C%E5%B0%8F%E8%AF%B4%E7%A7%92%E5%8F%98%E5%89%A7%E9%9B%86%EF%BC%81" />
-      </picture>
-    </a>
-  </p>
-
-  <p align="center">
-    <a href="https://github.com/HBAI-Ltd/Toonflow-app/stargazers">
-      <img src="https://img.shields.io/github/stars/HBAI-Ltd/Toonflow-app?style=for-the-badge&logo=github" alt="Stars Badge" />
-    </a>
-    <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank">
-      <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge" alt="Apache-2.0 License Badge" />
-    </a>
-    <a href="https://github.com/HBAI-Ltd/Toonflow-app/releases">
-      <img alt="release" src="https://img.shields.io/github/v/release/HBAI-Ltd/Toonflow-app?style=for-the-badge" />
-    </a>
-  </p>
-  <p align="center">
-    <a href="https://github.com/HBAI-Ltd/Toonflow-app/network/members">
-      <img src="https://img.shields.io/github/forks/HBAI-Ltd/Toonflow-app?style=for-the-badge&logo=github&color=orange" alt="Forks Badge" />
-    </a>
-    <a href="https://atomgit.com/HBAI-Ltd/Toonflow-app">
-      <img src="https://img.shields.io/badge/AtomGit-G--Star%20No.540-FF6B35?style=for-the-badge&logo=git&logoColor=white" alt="AtomGit G-Star No.540" />
-    </a>
-    <a href="https://discord.gg/HEjKmpNpAZ">
-      <img src="https://img.shields.io/badge/Discord-Community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" />
-    </a>
-  </p>
-  <p align="center">
-    <a href="https://github.com/HBAI-Ltd/Toonflow-app/issues">
-      <img src="https://img.shields.io/github/issues/HBAI-Ltd/Toonflow-app?style=for-the-badge&color=F48D73" alt="Issues" />
-    </a>
-    <a href="https://github.com/HBAI-Ltd/Toonflow-app/graphs/contributors">
-      <img src="https://img.shields.io/github/contributors/HBAI-Ltd/Toonflow-app?style=for-the-badge&color=2088FF" alt="Contributors" />
-    </a>
-    <a href="https://github.com/HBAI-Ltd/Toonflow-app/commits">
-      <img src="https://img.shields.io/github/last-commit/HBAI-Ltd/Toonflow-app?style=for-the-badge&color=blueviolet" alt="Last Commit" />
-    </a>
-  </p>
-  <p align="center">
-    <img src="https://ziadoua.github.io/m3-Markdown-Badges/badges/TypeScript/typescript2.svg" alt="TypeScript" />&nbsp;
-    <img src="https://ziadoua.github.io/m3-Markdown-Badges/badges/NodeJS/nodejs2.svg" alt="Node.js" />&nbsp;
-    <img src="https://ziadoua.github.io/m3-Markdown-Badges/badges/Docker/docker2.svg" alt="Docker" />&nbsp;
-    <img src="https://ziadoua.github.io/m3-Markdown-Badges/badges/Electron/electron2.svg" alt="Electron" />
-  </p>
-  <p align="center">
-    <img src="https://mobaicons.com/icons/typescript,nodejs,electron,docker,socket?perline=5" alt="Tech Stack Icons" />
-  </p>
-  
-  > 🚀 **一站式短剧工程**：从文本到角色，从分镜到视频，0门槛全流程AI化，创作效率提升10倍+！
-</div>
-
-<div align="center">
-  <table>
-    <tr>
-      <td width="50%" align="center">
-        <a href="./docs/g-star.png" target="_blank">
-          <img src="./docs/g-star.png" alt="AtomGit G-Star 认证证书" width="100%"/>
-        </a>
-      </td>
-      <td width="50%" align="center">
-        GVP - Gitee最有价值开源项目
-      </td>
-    </tr>
-  </table>
-</div>
-
----
-
-# 🌐 多语言支持
-
-Toonflow 支持以下语言界面：
-
-| 语言       | Language              |
-| ---------- | --------------------- |
-| 简体中文   | Chinese (Simplified)  |
-| 繁體中文   | Chinese (Traditional) |
-| English    | English               |
-| ไทย        | Thai                  |
-| Tiếng Việt | Vietnamese            |
-| 日本語     | Japanese              |
-| Русский    | Russian               |
-
-> 💡 更多语言适配中，欢迎贡献翻译！
-
----
-
-# 🌟 主要功能
-
-Toonflow 是面向短剧生产的 AI 工作台，围绕“策划 → 编剧 → 分镜 → 出片”构建完整闭环，并支持本地化、可编程、可持续迭代的生产流程。
-
-- ✅ **无限画布生产工作台**  
-  以类无限画布形式组织剧本、角色、分镜、素材与视频节点，支持自由编排、回溯与并行生产，不受线性步骤限制。
-- ✅ **三层 Agent 协作体系**  
-  决策层、执行层、监督层协同工作，覆盖任务拆解、内容生成、质量审阅与修订反馈，提升稳定性与成片一致性。
-- ✅ **持久化 Agent 记忆**  
-  基于本地 ONNX 向量检索的跨会话记忆系统，支持短期消息、长期摘要和语义召回，确保多轮创作连续性。
-- ✅ **可编程供应商系统**  
-  支持在设置中心直接编写供应商 TypeScript 逻辑并即时生效，无需改源码或重启，便于私有化和多模型接入。
-- ✅ **章节事件图谱驱动改编**  
-  自动提取原著章节事件并结构化存储，剧本改编按事件图谱精准调用上下文，减少长文本信息丢失。
-- ✅ **Skill 文件化配置**  
-  ScriptAgent 与 ProductionAgent 的核心提示词外化为 Markdown Skill 文件，支持在线编辑与快速调优。
-
----
-
-# 📦 应用场景
-
-- 短视频内容创作
-- 小说影视化实验
-- AI 文学改编工具
-- 剧本开发与快速原型
-- 视频素材生成
-
----
-
-# 🔰 使用指南
-
-## 快速上手
-
-1. 启动应用并登录（默认账号：`admin` / `admin123`）。
-2. 在设置中心完成模型供应商配置（文本/图像/视频模型）。
-3. 新建项目并导入原著，执行章节事件提取。
-4. 进入 ScriptAgent 生成故事骨架、改编策略与结构化剧本。
-5. 切换到 ProductionAgent，在无限画布中组织分镜、素材与视频节点。
-6. 对分镜图进行节点化精调后回流工作台，完成视频拼接与导出。
-
-## 📺 视频教程
-
-https://www.bilibili.com/video/BV1oXD7BqEqJ
-[![Toonflow 12 分钟快速上手 AI 视频](./docs/videoCover.jpg)](https://www.bilibili.com/video/BV1oXD7BqEqJ)
-
-**Toonflow 12 分钟快速上手 AI 视频**
-👉 [点击观看](https://www.bilibili.com/video/BV1oXD7BqEqJ)
-
-📱 手机微信扫码观看
-
-<img src="./docs/videoQR.png" alt="微信扫码观看" width="150"/>
-
----
-
-# 📸 演示截图与视频
-
-以下截图及视频来自使用 Toonflow 制作的一段 AI 短剧 Demo，全程约 2 小时完成，涵盖剧本生成、分镜制作及剪辑环节。
-
-<div align="center">
-<table>
-  <tr>
-    <td width="50%"><a href="./docs/screenshot/1.png" target="_blank"><img src="./docs/screenshot/1.png" width="100%"/></a></td>
-    <td width="50%"><a href="./docs/screenshot/2.png" target="_blank"><img src="./docs/screenshot/2.png" width="100%"/></a></td>
-  </tr>
-  <tr>
-    <td width="50%"><a href="./docs/screenshot/3.png" target="_blank"><img src="./docs/screenshot/3.png" width="100%"/></a></td>
-    <td width="50%"><a href="./docs/screenshot/4.png" target="_blank"><img src="./docs/screenshot/4.png" width="100%"/></a></td>
-  </tr>
-  <tr>
-    <td width="50%"><a href="./docs/screenshot/5.png" target="_blank"><img src="./docs/screenshot/5.png" width="100%"/></a></td>
-    <td width="50%"><a href="./docs/screenshot/6.png" target="_blank"><img src="./docs/screenshot/6.png" width="100%"/></a></td>
-  </tr>
-  <tr>
-    <td width="50%"><a href="./docs/screenshot/7.png" target="_blank"><img src="./docs/screenshot/7.png" width="100%"/></a></td>
-    <td width="50%"><a href="./docs/screenshot/8.png" target="_blank"><img src="./docs/screenshot/8.png" width="100%"/></a></td>
-  </tr>
-  <tr>
-    <td width="50%"><a href="./docs/screenshot/9.png" target="_blank"><img src="./docs/screenshot/9.png" width="100%"/></a></td>
-    <td width="50%"><a href="./docs/screenshot/10.png" target="_blank"><img src="./docs/screenshot/10.png" width="100%"/></a></td>
-  </tr>
-</table>
-</div>
-
-## 🎬 Demo 视频
-
-<div align="center">
-
-https://github.com/user-attachments/assets/2d9fddac-dfdf-4640-b030-b09d7f7287e9
-
-如无法播放，请[点击下载视频](./docs/screenshot/demo.mp4)
-
-</div>
-
-## Demo 信息
-
-| 项目 | 详情 |
-| :--- | :--- |
-| 制作周期 | 约 2 小时 |
-| 视频模型 | Seedance 2.0 |
-| 图片模型 | GPT Image 2 |
-| 语言模型 | Claude Opus 4.6 |
-| 成片总时长 | 约 2 分钟（原始素材 3 分钟，剪除废片约 1 分钟） |
-
-## 成本明细
-
-| 模型类型 | 费用 |
-| :--- | :--- |
-| 语言模型 | 约 ¥10 |
-| 视频模型（全量生成） | 约 ¥120 |
-| 图片模型 | 不足 ¥1 |
-| **合计** | **约 ¥130** |
-
-> **声明**：Demo 原始分辨率为 1080×1882，发布版本已压缩至 480p。如涉及版权问题，请联系我们删除处理。
-
----
-
-# 🚀 安装
-
-## 前置条件
-
-在安装和使用本软件之前，请准备以下内容：
-
-- ✅ 大语言模型 AI 服务接口地址
-- ✅ Sora 或豆包视频服务接口地址
-- ✅ Nano Banana Pro 图片生成模型服务接口
-
-## 本机安装
-
-### 1. 下载与安装
-
-| 操作系统 | GitHub                                                       | 说明           |
-| :------: | :----------------------------------------------------------- | :------------- |
-| Windows  | [Release](https://github.com/HBAI-Ltd/Toonflow-app/releases) | 官方发布安装包 |
-|  Linux   | [Release](https://github.com/HBAI-Ltd/Toonflow-app/releases) | 官方发布安装包 |
-|  macOS   | [Release](https://github.com/HBAI-Ltd/Toonflow-app/releases) | 官方发布安装包 |
-
-> [!CAUTION]
-> MacOS 系统请到 设置-隐私与安全性 配置安全性否则可能因证书问题无法正常打开
+> [!IMPORTANT]
+> **原创致敬与来源声明**
 >
-> 参考知乎文档：[https://www.zhihu.com/question/433389276](https://www.zhihu.com/question/433389276)
+> 本仓库是在 **HBAI-Ltd（北京爱啊科技有限公司）** 原创的 Toonflow 项目代码基础上进行的二次开发。感谢原作者及原项目贡献者提供完整的 AI 影视生产基础能力。本仓库不是官方发行版，二次开发内容、维护节奏和使用支持均由本仓库维护者自行负责。
+>
+> 原作者 / 原维护组织：**HBAI-Ltd（北京爱啊科技有限公司）**
+>
+> 原始项目完整仓库地址：
+>
+> - GitHub：<https://github.com/HBAI-Ltd/Toonflow-app>
+> - Gitee：<https://gitee.com/HBAI-Ltd/Toonflow-app>
+> - GitCode：<https://gitcode.com/HBAI-Ltd/Toonflow-app>
+> - AtomGit：<https://atomgit.com/HBAI-Ltd/Toonflow-app>
+>
+> 原项目关联的前端源代码仓库：
+>
+> - GitHub：<https://github.com/HBAI-Ltd/Toonflow-web>
+> - Gitee：<https://gitee.com/HBAI-Ltd/Toonflow-web>
+>
+> 当前二次开发仓库：<https://gitee.com/lan0811/toonflaw-2.0>
 
-> 因 Gitee OS 环境限制及 Release 文件上传大小限制，暂不提供 Gitee Release 下载地址。
+## 项目定位
 
-### 2. 启动服务
+这是一个面向 AI 短剧、漫剧和产品宣传片生产的本地工作台。项目保留 Toonflow 原有的小说、剧本、资产、分镜和视频生产能力，并在此基础上补充了两条独立业务线：
 
-安装完成后，启动程序即可开始使用本服务。
+1. 以分镜表为起点的 AI 短剧生产闭环。
+2. 以节点画布为核心的单条产品宣传片生成工作区。
 
-> ⚠️ **首次登录**  
-> 账号：`admin`  
-> 密码：`admin123`
+当前版本号为 `1.1.9`。应用可作为 Electron 桌面端运行，也可以单独启动本地 HTTP 服务。业务数据、生成素材和工作流状态默认保存在本机。
 
-## Docker 部署
+## 本仓库新增内容
 
-### 前置条件
+### 1. 基于分镜表的独立项目类型
 
-- 已安装 [Docker](https://docs.docker.com/get-docker/)（版本 20.10+）
+项目类型现统一为：
 
-### 方式一：在线部署
+| 值 | 页面含义 | 主要输入 |
+| --- | --- | --- |
+| `novel` | 基于小说原文 | 小说章节与事件 |
+| `script` | 基于剧本 | 单集或批量剧本 |
+| `storyboard` | 基于分镜表 | 结构化分镜表 |
 
-待完善，暂时使用本地构建。
+`storyboard` 项目拥有独立的分镜表管理入口，不再被当作普通剧本项目显示或跳转。
 
-### 方式二：本地构建
+### 2. 分镜表解析、预览与入库
 
-使用本地已有的源码直接构建，适合开发者或已克隆仓库的用户，这需要你在本地安装 git：
+二次开发接口支持解析以下输入：
 
-```shell
-# 先克隆项目（如已有则跳过）
-git clone https://github.com/HBAI-Ltd/Toonflow-app.git
-cd Toonflow-app
+- 标准 TXT 分镜格式；
+- Markdown 表格；
+- Word DOCX 表格；
+- JSON；
+- CSV / TSV；
+- 直接粘贴的结构化文本。
 
-# 使用 docker-compose 本地构建并启动
-yarn docker:local
+解析阶段会标准化镜号、时长、景别、镜头运动、场景、画面描述、台词、音效、道具和备注等字段。用户确认后，系统会在事务内创建或复用：
 
-# 或者手动构建
-docker build -t toonflow .
-docker run -d -p <本地端口>:10588 -v <本地数据路径>:/app/data toonflow
+- 内部分镜批次；
+- 角色、场景、道具原始资产；
+- 分镜记录及排序；
+- 分镜与资产关联；
+- 视频轨道。
 
-# 此时在相应端口的 /index.html 路径即可访问页面
-# 例如 http://localhost:10588/index.html
+### 3. 分镜表资产统计与关联修复
+
+资产统计以最终分镜行实际使用的 `roleNames`、`sceneNames` 和 `toolNames` 为准，不再把未使用的参考资料混入主统计。
+
+当前实现还包含：
+
+- 未使用角色参考的明确警告；
+- 缺少场景美术参考的明确警告；
+- 同一批次内已明确道具的跨镜头补关联；
+- 场景、角色、道具按类型去重；
+- 解析端与提交端资产统计一致性校验；
+- 防止无依据的模糊资产推断；
+- 分镜关联资产的查询、编辑和重算。
+
+### 4. 可观察、可重试的生产工作流
+
+分镜表项目可以按以下步骤继续生产：
+
+```text
+导入分镜表
+  → 原始资产提示词
+  → 原始资产图片
+  → 创建衍生资产
+  → 衍生资产提示词
+  → 衍生资产图片
+  → 分镜图
+  → 视频提示词
+  → 视频
 ```
 
-### 服务端口说明
+工作流会按 `projectId + scriptId` 隔离不同项目与导入批次，并为每一步提供总数、已完成数、失败数、生成中数量、可执行数量和阻塞原因。已完成项不会在普通执行中重复提交；失败项可以单独重试，必要时也可以强制重新生成。
 
-| 端口    | 用途     | 部署映射      |
-| ------- | -------- | ------------- |
-| `10588` | 软件界面 | `10588:10588` |
+### 5. 产品宣传片独立工作区
 
-**环境变量说明：**
+访问地址：
 
-| 变量       | 说明                               |
-| ---------- | ---------------------------------- |
-| `NODE_ENV` | 运行环境，`prod` 表示生产环境      |
-| `PORT`     | 服务监听端口（默认 10588）         |
-| `OSSURL`   | 文件存储访问地址，用于静态资源访问 |
-
----
-
-## 云端部署
-
-### 一、服务器环境要求
-
-- **系统**：Ubuntu 20.04+ / CentOS 7+
-- **Node.js**：24.x（推荐，最低 23.11.1+）
-- **内存**：2GB+
-
-### 二、服务器部署
-
-#### 1. 安装环境
-
-```bash
-# 安装 Node.js
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-source ~/.bashrc
-nvm install 24
-# 安装 Yarn 和 PM2
-npm install -g yarn pm2
+```text
+/#/product-promo
+/#/product-promo?projectId=<项目ID>
 ```
 
-#### 2. 部署项目
+该工作区从主界面侧边栏直接进入，使用带内部标记的项目与普通短剧项目隔离。主要能力包括：
 
-**从 GitHub 克隆：**
+- 宣传片项目的新建、编辑、打开和删除；
+- 上传图片、图片生成、最终视频三类节点；
+- 节点拖拽、连线、缩放、平移、适配视图和自动排版；
+- 自连、重复边、循环和视频节点出边校验；
+- 根据上游连线自动收集图片参考；
+- 按拓扑依赖一键生成并从失败节点续跑；
+- 图片原始比例展示，竖图不裁切；
+- 视频任务轮询、失败原因、播放、打开和下载；
+- 面向商业产品图与产品视频的内置提示词模板。
+
+宣传片画布保存在浏览器本地存储中，键名按项目隔离；Base64 原始文件不会写入本地存储。第一版以单次视频模型生成的一条成片为目标，不包含多片段剪辑、字幕合成或独立音轨混合。
+
+## 保留的 Toonflow 基础能力
+
+在原项目能力基础上，本仓库仍可使用：
+
+- 小说章节导入、事件提取与剧本改编；
+- ScriptAgent 与 ProductionAgent；
+- 角色、场景、道具的原始资产和衍生资产管理；
+- 资产提示词润色与图片生成；
+- 分镜面板、分镜图和参考资产关联；
+- 视频提示词、视频任务、候选结果和轨道管理；
+- 多模型供应商配置与可编程 Vendor；
+- Agent 技能文件和本地记忆；
+- SQLite 本地数据存储；
+- Electron 桌面端与 HTTP 服务模式。
+
+## 技术组成
+
+| 层级 | 主要技术 |
+| --- | --- |
+| 运行时 | Node.js 24 |
+| 语言 | TypeScript 5 |
+| 服务端 | Express 5、Express WebSocket、Socket.IO |
+| 数据库 | SQLite、Knex、better-sqlite3 |
+| AI 接入 | Vercel AI SDK 与可编程模型供应商 |
+| 本地推理 | Hugging Face Transformers / ONNX |
+| 图像处理 | Sharp |
+| 桌面端 | Electron 40、electron-builder |
+| 构建 | esbuild、tsx |
+| 内置前端 | 已构建 Web 资源 + 原生 JavaScript/CSS 二开补丁 |
+
+## 目录说明
+
+```text
+.
+├─ src/
+│  ├─ agents/                         # ScriptAgent 与 ProductionAgent
+│  ├─ constants/                      # 项目类型和工作流步骤定义
+│  ├─ lib/                            # 数据库、资产统计和通用能力
+│  └─ routes/
+│     ├─ storyboardImport/            # 分镜表解析、提交和管理接口
+│     └─ production/workflow/         # 生产步骤准备、进度和执行接口
+├─ data/
+│  ├─ serve/app.js                    # 构建后的生产服务入口
+│  ├─ skills/                         # Agent 与美术风格技能文件
+│  ├─ vendor/                         # 模型供应商实现
+│  ├─ web/                            # 内置前端及二开页面
+│  ├─ db2.sqlite                      # 本地业务数据库
+│  └─ oss/                            # 本地生成素材
+├─ scripts/                           # 构建、Electron 和打包脚本
+├─ test/storyboardImport/             # 分镜表资产与解析回归测试
+├─ docs/secondary-development-workflow.md
+│                                      # 二开接口说明
+├─ .zcode/plans/                       # 已有二次开发计划记录
+└─ .codex/plans/                       # 当前协作计划记录
+```
+
+`data/web/index.html` 是已构建前端产物，并非完整可维护的 Vue 源码。本仓库新增页面通过 `secondary-dev-patch.js`、`product-promo-studio.js` 及对应样式注入。替换或重新构建 `data/web` 前，请先确认这些二开文件和入口引用不会被覆盖。
+
+## 环境准备
+
+建议使用：
+
+- Node.js `24.x`；
+- Yarn Classic；
+- Git；
+- 可用的文本、图片和视频模型接口；
+- Windows、macOS 或 Linux 桌面环境（运行 Electron 时）。
+
+项目涉及 `better-sqlite3`、`sharp` 和 Electron 等原生或平台相关依赖。若依赖安装失败，请先确认 Node.js 版本、系统编译工具和当前平台架构一致。
+
+## 获取与安装
 
 ```bash
-cd /opt
-git clone https://github.com/HBAI-Ltd/Toonflow-app.git
-cd Toonflow-app
-yarn install
+git clone https://gitee.com/lan0811/toonflaw-2.0.git
+cd toonflaw-2.0
+yarn install --frozen-lockfile
+```
+
+如果只是研究原始 Toonflow，请从本页开头列出的 HBAI-Ltd 原始仓库获取代码；上面的地址对应本二次开发版本。
+
+## 启动方式
+
+### Electron 桌面端
+
+```bash
+yarn dev:gui
+```
+
+该命令会启动本地后端，并通过 Electron 加载仓库内置前端，是体验完整功能的推荐开发方式。
+
+如需连接单独运行的前端开发服务器：
+
+```bash
+yarn dev:gui-vite
+```
+
+此模式默认连接 `http://localhost:50188`，需要另行准备兼容的前端开发服务。
+
+### 本地 HTTP 服务
+
+```bash
+yarn dev
+```
+
+默认监听：
+
+```text
+http://localhost:10588
+```
+
+内置页面入口为：
+
+```text
+http://localhost:10588/index.html
+```
+
+### 生产模式
+
+```bash
 yarn build
+yarn start
 ```
 
-**从 Gitee 克隆（国内推荐）：**
+`yarn start` 运行 `data/serve/app.js`。每次修改 TypeScript 路由后都应重新执行 `yarn build`，否则生产服务仍会使用旧的路由包。
+
+## 首次使用
+
+首次初始化数据库时会创建默认账户：
+
+```text
+用户名：admin
+密码：admin123
+```
+
+登录后请立即修改默认密码，然后在设置中心完成以下配置：
+
+1. 添加或启用模型供应商；
+2. 配置文本、图片和视频模型；
+3. 完成模型映射；
+4. 为 Agent 工作流选择通用文本模型；
+5. 分别测试文本、图片和视频请求。
+
+模型调用会产生外部服务费用，实际费用、内容合规和数据处理规则由所选择的服务商决定。
+
+## 使用分镜表工作流
+
+1. 新建项目并选择“基于分镜表”。
+2. 打开分镜表管理页，上传 TXT、Markdown 或 DOCX，或直接粘贴内容。
+3. 检查解析后的镜头字段、资产统计和 warnings。
+4. 确认导入并选择当前分镜批次。
+5. 检查和编辑角色、场景、道具及其分镜关联。
+6. 依次执行原始资产、衍生资产、分镜图和视频步骤。
+7. 对失败项查看具体原因并按需重试。
+
+同一项目可以存在多个导入批次。涉及资产、分镜和视频的操作应始终确认当前 `scriptId`，避免跨批次执行。
+
+## 使用产品宣传片工作区
+
+1. 从侧边栏进入“产品宣传片”。
+2. 新建项目并填写产品说明、画面比例、图片模型和视频模型。
+3. 在默认画布中上传产品参考图。
+4. 编辑图片节点和视频节点提示词。
+5. 检查节点连线所代表的参考图依赖。
+6. 单独生成节点，或使用“一键生成”按依赖顺序执行。
+7. 在右侧结果区预览、打开或下载生成视频。
+
+画布结构保存在当前浏览器或 Electron 用户数据目录对应的本地存储中。清理浏览器数据、删除项目或更换用户数据目录前，请自行确认是否需要保留画布信息。
+
+## 常用检查
 
 ```bash
-cd /opt
-git clone https://gitee.com/HBAI-Ltd/Toonflow-app.git
-cd Toonflow-app
-yarn install
+# TypeScript 类型检查
+yarn lint
+
+# 分镜表解析与资产关联回归测试
+yarn test:storyboard-import
+
+# 二开前端脚本语法检查
+node --check data/web/secondary-dev-patch.js
+node --check data/web/product-promo-studio.js
+
+# 生成生产服务和 Electron 主进程构建文件
 yarn build
+
+# 检查补丁中的空白和冲突标记
+git diff --check
 ```
 
-#### 3. 配置 PM2
+分镜表自动化测试不会导入真实数据库初始化链，也不应修改 `data/db2.sqlite`。
 
-创建 `pm2.json` 文件：
-
-```json
-{
-  "name": "toonflow-app",
-  "script": "data/serve/app.js",
-  "instances": "max",
-  "exec_mode": "cluster",
-  "env": {
-    "NODE_ENV": "prod",
-    "PORT": 10588,
-    "OSSURL": "http://127.0.0.1:10588/"
-  }
-}
-```
-
-**环境变量说明：**
-
-| 变量       | 说明                               |
-| ---------- | ---------------------------------- |
-| `NODE_ENV` | 运行环境，`prod` 表示生产环境      |
-| `PORT`     | 服务监听端口                       |
-| `OSSURL`   | 文件存储访问地址，用于静态资源访问 |
-
----
-
-#### 4. 启动服务
+## 桌面端打包
 
 ```bash
-pm2 start pm2.json
-pm2 startup
-pm2 save
+# 仅生成未封装目录
+yarn pack
+
+# 当前平台完整打包
+yarn dist
+
+# 指定平台
+yarn dist:win
+yarn dist:mac
+yarn dist:linux
 ```
 
-#### 5. 常用命令
+打包前应先完成类型检查、分镜表测试和生产构建。跨平台打包可能还需要对应系统的签名、图标或原生依赖环境。
+
+## 二次开发 API
+
+主要新增接口如下：
+
+| 接口 | 用途 |
+| --- | --- |
+| `POST /api/storyboardImport/parse` | 解析并预览分镜表 |
+| `POST /api/storyboardImport/commit` | 提交分镜、资产和轨道 |
+| `POST /api/storyboardImport/list` | 查询导入批次、分镜和关联资产 |
+| `POST /api/storyboardImport/update` | 更新单条分镜 |
+| `POST /api/storyboardImport/updateAsset` | 调整分镜资产关系 |
+| `POST /api/storyboardImport/delete` | 删除分镜记录 |
+| `POST /api/production/workflow/getConfig` | 获取项目类型和工作流配置 |
+| `POST /api/production/workflow/getProgress` | 查询各生产步骤进度 |
+| `POST /api/production/workflow/getRunnableData` | 查询当前可执行对象 |
+| `POST /api/production/workflow/prepareStepRequest` | 准备底层步骤请求体 |
+| `POST /api/production/workflow/runStep` | 统一启动一个生产步骤 |
+| `POST /api/production/workflow/generateDerivedAssets` | 创建并关联衍生资产 |
+
+请求需要先登录并携带有效 Token。接口字段、状态结构和调用示例见 [二次开发流程接口说明](./docs/secondary-development-workflow.md)。
+
+## 数据与升级注意事项
+
+- `data/db2.sqlite` 保存本地业务数据，调试和测试前请先备份。
+- `data/oss` 保存图片、视频和缩略图等生成素材。
+- Electron 安装版会把运行数据复制到应用用户数据目录，源码目录不一定是实际数据目录。
+- 不要手工编辑 `data/serve/app.js`；它应由 `yarn build` 从 TypeScript 源码生成。
+- 不要把 API Key、Token、真实数据库或生成素材提交到公开仓库。
+- 更新内置前端时应重新验证分镜表页面、宣传片路由、侧边栏入口和 Electron `file://` 模式。
+- 模型供应商对参考图数量、时长、分辨率和音频参数的支持不同，提交前会按模型详情进行校验。
+
+## 当前边界
+
+- 内置 Web 前端是构建产物，注入式二开对原页面 DOM 和路由结构存在依赖。
+- 宣传片工作区目前只生成单条视频，不负责多片段剪辑与字幕包装。
+- AI 生成结果受模型、提示词、服务可用性和供应商限制影响，不能保证每次输出一致。
+- 本项目默认以本地单机工作流为主，不等同于多租户生产平台。
+- 计划文档用于记录设计与修复过程；功能状态应以当前代码、路由和测试结果为准。
+
+## 协作规则
+
+本二次开发仓库只在 `master` 分支进行开发、提交和推送。修改前请确认当前分支和工作区状态，并保留已有未提交内容：
 
 ```bash
-pm2 list              # 查看进程
-pm2 logs toonflow-app # 查看日志
-pm2 restart all       # 重启服务
-pm2 monit             # 监控面板
+git branch --show-current
+git status --short
 ```
 
-> ⚠️ **首次登录**  
-> 账号：`admin`  
-> 密码：`admin123`
+提交前至少运行与修改范围对应的检查。修改分镜表解析、生产工作流或前端补丁时，建议执行“常用检查”中的完整命令集。
 
-#### 6. 部署前端网站
+## 许可证与版权
 
-如需单独部署或定制前端界面，请参考前端仓库：
+本仓库继续保留原项目的 [LICENSE](./LICENSE) 与 [NOTICES.txt](./NOTICES.txt)。使用、修改和分发本项目时，应同时遵守：
 
-- **GitHub**：[Toonflow-web](https://github.com/HBAI-Ltd/Toonflow-web)
-- **Gitee**：[Toonflow-web](https://gitee.com/HBAI-Ltd/Toonflow-web)
+1. Apache License 2.0；
+2. `LICENSE` 末尾由 HBAI-Ltd 提供的补充协议；
+3. 原项目关于商标、标识和版权信息的保留要求；
+4. 第三方依赖各自的许可证。
 
-> 💡 **说明**：本仓库已内置编译好的前端资源，普通用户无需单独部署前端。前端仓库仅供需要二次开发的开发者使用。
+将本软件或衍生版本作为产品向两个及以上独立第三方分发、销售或提供使用前，请先阅读补充协议并向 HBAI-Ltd 确认是否需要书面商业授权。
 
----
-
-# 🔧 开发流程指南
-
-> [!CAUTION]
-> 🚧 **PR 提交规范** 🚧
->
-> ⛔ `master` 分支不接受任何 PR ｜ ✅ 请将 PR 提交到 `develop` 分支
->
-> 欢迎开发者们共同参与 Toonflow 的共创。如有兴趣加入，请在交流群内联系主理人 ACT
-
-## 🛠️ 技术栈
-
-| 类别       | 技术                                                                                      |
-| ---------- | ----------------------------------------------------------------------------------------- |
-| 运行时     | Node.js 23.11.1+                                                                          |
-| 语言       | TypeScript 5.x                                                                            |
-| 后端框架   | Express 5                                                                                 |
-| 数据库     | SQLite（better-sqlite3 / knex）                                                           |
-| AI 集成    | Vercel AI SDK（OpenAI / Anthropic / Google / DeepSeek / 智谱 / MiniMax / 通义千问 / xAI） |
-| 本地推理   | @huggingface/transformers（ONNX）                                                         |
-| 实时通信   | Socket.IO                                                                                 |
-| 桌面客户端 | Electron 40                                                                               |
-| 图像处理   | Sharp                                                                                     |
-| 容器化     | Docker                                                                                    |
-
-## 开发环境准备
-
-- **Node.js**：版本要求 23.11.1 及以上
-- **Yarn**：推荐作为项目包管理器
-
-## 快速启动项目
-
-1. **克隆项目**
-
-   **从 GitHub 克隆：**
-
-   ```bash
-   git clone https://github.com/HBAI-Ltd/Toonflow-app.git
-   cd Toonflow-app
-   ```
-
-   **从 Gitee 克隆（国内推荐）：**
-
-   ```bash
-   git clone https://gitee.com/HBAI-Ltd/Toonflow-app.git
-   cd Toonflow-app
-   ```
-
-2. **安装依赖**
-
-   请先在项目根目录下执行以下命令以安装依赖项：
-
-   ```bash
-   yarn install
-   ```
-
-3. **启动开发环境**
-
-   本项目包含 **后端 API 服务** 和 **前端页面** 两部分，请根据需要选择启动方式：
-
-   - **方式一：仅启动后端服务**
-
-     ```bash
-     yarn dev
-     ```
-
-     > ⚠️ 此命令仅启动后端 API 服务（端口 10588），**不包含前端页面**。直接访问 `http://localhost:10588` 只能调用 API 接口，无法看到完整的网页界面。如需同时使用前端页面，请配合前端项目单独启动，或使用下方的 GUI 模式。
-
-   - **方式二：启动 Electron 桌面客户端**
-
-     ```bash
-     yarn dev:gui
-     ```
-
-     > 此命令会同时启动后端服务和 Electron 桌面窗口，自带内置前端页面，开箱即用，无需额外配置。适合想要完整体验所有功能的开发者。
-
-   - **方式三：生产模式启动**
-
-     ```bash
-     yarn start
-     ```
-
-     > 以生产模式直接运行编译后的服务（需先执行 `yarn build`）。
-
-4. **项目打包**
-
-   - 编译并生成 TypeScript 文件：
-
-     ```bash
-     yarn build
-     ```
-
-   - 打包为 Windows 平台可执行程序：
-
-     ```bash
-     yarn dist:win
-     ```
-
-   - 打包为 Mac 平台可执行程序：
-
-     ```bash
-     yarn dist:mac
-     ```
-
-   - 打包为 Linux 平台可执行程序：
-
-     ```bash
-     yarn dist:linux
-     ```
-
-5. **代码质量检查**
-
-   - 进行全局语法和规范检查：
-
-     ```bash
-     yarn lint
-     ```
-
-6. **AI 调试面板（可选）**
-
-   启动 AI SDK 的可视化调试工具，方便调试 AI 调用：
-
-   ```bash
-   yarn debug:ai
-   ```
-
-## 前端开发
-
-如需修改前端界面，请前往前端仓库进行开发：
-
-- **GitHub**：[Toonflow-web](https://github.com/HBAI-Ltd/Toonflow-web)
-- **Gitee**：[Toonflow-web](https://gitee.com/HBAI-Ltd/Toonflow-web)
-
-前端构建后，将 `dist` 目录内容复制到本项目的 `data/web` 目录即可集成。
-
-## 项目结构
-
-```
-📂 build/                    # 编译产物
-📂 data/                     # 运行时数据
-│  ├─ 📂 models/            # 本地推理模型（ONNX）
-│  ├─ 📂 oss/               # 对象存储（素材/角色/场景）
-│  ├─ 📂 serve/             # 生产环境入口
-│  ├─ 📂 skills/            # Agent 技能提示词
-│  └─ 📂 web/               # 前端编译产物（内置）
-📂 docs/                     # 文档资源
-📂 env/                      # 环境配置
-📂 scripts/                  # 构建与辅助脚本
-📂 src/
-├─ 📂 agents/               # AI Agent 模块
-│  ├─ 📂 productionAgent/   # 生产 Agent
-│  └─ 📂 scriptAgent/       # 剧本 Agent
-├─ 📂 lib/                  # 公共库（数据库初始化、响应格式）
-├─ 📂 middleware/            # 中间件
-├─ 📂 routes/               # 路由模块
-│  ├─ 📂 agents/            # Agent 记忆管理
-│  ├─ 📂 artStyle/          # 画风管理
-│  ├─ 📂 assets/            # 素材管理
-│  ├─ 📂 assetsGenerate/    # 素材生成
-│  ├─ 📂 cornerScape/       # 分镜管理
-│  ├─ 📂 general/           # 通用接口
-│  ├─ 📂 login/             # 登录认证
-│  ├─ 📂 migrate/           # 数据迁移
-│  ├─ 📂 modelSelect/       # 模型选择
-│  ├─ 📂 novel/             # 小说管理
-│  ├─ 📂 other/             # 其他功能
-│  ├─ 📂 production/        # 制作管理
-│  ├─ 📂 project/           # 项目管理
-│  ├─ 📂 script/            # 剧本生成
-│  ├─ 📂 scriptAgent/       # 剧本 Agent 接口
-│  ├─ 📂 setting/           # 系统设置
-│  ├─ 📂 task/              # 任务管理
-│  └─ 📂 test/              # 测试接口
-├─ 📂 socket/               # WebSocket 实时通信
-├─ 📂 types/                # TypeScript 类型声明
-├─ 📂 utils/                # 工具函数
-├─ 📄 app.ts                # 应用入口
-├─ 📄 core.ts               # 核心初始化
-├─ 📄 env.ts                # 环境变量处理
-├─ 📄 err.ts                # 错误处理
-├─ 📄 logger.ts             # 日志模块
-├─ 📄 router.ts             # 路由注册
-└─ 📄 utils.ts              # 通用工具
-📄 Dockerfile                # Docker 构建文件
-📄 electron-builder.yml      # Electron 打包配置
-📄 skillList.json            # 技能清单
-📄 LICENSE                   # 许可证（Apache-2.0）
-📄 NOTICES.txt               # 第三方依赖声明
-📄 package.json              # 项目配置
-📄 tsconfig.json             # TypeScript 配置
-```
-
----
-
-# 🔗 相关仓库
-
-| 仓库             | 说明                               | GitHub                                             | Gitee                                            |
-| ---------------- | ---------------------------------- | -------------------------------------------------- | ------------------------------------------------ |
-| **Toonflow-app** | 完整客户端（本仓库，推荐普通用户） | [GitHub](https://github.com/HBAI-Ltd/Toonflow-app) | [Gitee](https://gitee.com/HBAI-Ltd/Toonflow-app) |
-| **Toonflow-web** | 前端源代码（适合前端开发者）       | [GitHub](https://github.com/HBAI-Ltd/Toonflow-web) | [Gitee](https://gitee.com/HBAI-Ltd/Toonflow-web) |
-
-> 💡 **提示**：如果您只是想使用 Toonflow，直接下载本仓库的客户端即可。前端仓库仅供需要二次开发或定制前端界面的开发者使用。
-
----
-
-# 👨‍👩‍👧‍👦 微信交流群
-
-拉群小助手:
-
-<img src="./docs/QR.png" alt="Toonflow QR" height="400"/>
-
-也可以点击图标加入 Discord：
-
-[![Join our Discord](https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/67d00cf7266d2c75571aebde_Example.svg)](https://discord.gg/HEjKmpNpAZ)
-
-或点击邀请连接： [https://discord.gg/HEjKmpNpAZ](https://discord.gg/HEjKmpNpAZ)
-
----
-
-# 💌 联系我们
-
-📧 邮箱：[ltlctools@outlook.com](mailto:ltlctools@outlook.com?subject=Toonflow咨询)
-
----
-
-# 📜 许可证
-
-Toonflow 基于 Apache-2.0 协议开源发布，并附有补充商业协议。
-
-许可证详情：https://www.apache.org/licenses/LICENSE-2.0
-
-## 补充协议
-
-- 若将本软件以产品形式分发给 **2 个及以上独立第三方**使用，须取得 HBAI-Ltd **书面商业授权**。
-- **≤ 5 个法人**联合运营内部使用，不对外提供服务的，视为内部使用，**无需授权**。
-- 不得删除或修改 Toonflow 中的标识或版权信息。
-
-## 永久免费场景
-
-- ✅ 用 Toonflow 制作内容并获得平台分账
-- ✅ 二次开发供自己团队内部使用
-- ✅ ≤ 5 个法人联合运营内部使用
-- ✅ 个人学习、研究、非商业用途
-
-## 商业授权定价
-
-| 阶段 | 年销售额 | 年费 |
-|------|---------|------|
-| 🌱 扶持期 | < ¥10 万 | **申请即可免费授权** |
-| 🚀 初创期 | ¥10–50 万 | ¥5,000/年 |
-| 📈 成长期 | ¥50–150 万 | ¥20,000/年 |
-| 🏢 规模期 | ¥150–500 万 | ¥80,000/年 |
-| 🌐 企业级 | > ¥500 万 | 面议 |
-
-> **不追溯条款**：v1.0.8 发布前基于 AGPL-3.0 使用的用户，继续按 AGPL-3.0 执行，不受本协议变更约束。
-
-完整协议详见 [LICENSE](./LICENSE) 文件。
-
----
-
-# ⭐️ 星标历史
-
-[![Star History Rank](https://api.star-history.com/badge?repo=HBAI-Ltd/Toonflow-app)](https://www.star-history.com/#HBAI-Ltd/Toonflow-app)
-
-[![Star History Chart](https://api.star-history.com/svg?repos=HBAI-Ltd/Toonflow-app&type=timeline&legend=top-left)](https://www.star-history.com/#HBAI-Ltd/Toonflow-app&type=timeline&legend=top-left)
-
----
-
-
-# 🙏 致谢
-
-感谢以下开源项目为 Toonflow 提供强大支持：
-
-- [Express](https://expressjs.com/) - 快速、开放、极简的 Node.js Web 框架
-- [AI SDK](https://ai-sdk.dev/) - 面向 TypeScript 的 AI 工具包
-- [Better-SQLite3](https://github.com/WiseLibs/better-sqlite3) - 高性能 SQLite3 绑定库
-- [Sharp](https://sharp.pixelplumbing.com/) - 高性能 Node.js 图像处理库
-- [Axios](https://axios-http.com/) - 基于 Promise 的 HTTP 客户端
-- [Zod](https://zod.dev/) - TypeScript 优先的模式验证库
-- [Socket.IO](https://socket.io/) - 实时双向事件通信引擎
-- [Electron](https://www.electronjs.org/) - 跨平台桌面应用开发框架
-- [Hugging Face Transformers](https://huggingface.co/docs/transformers.js) - 本地 ML 推理库
-
-感谢以下组织/单位/个人为 Toonflow 提供支持：
-
-<table>
-  <thead>
-    <tr>
-      <th align="center">Logo</th>
-      <th align="center">名称</th>
-      <th align="center">支持方式</th>
-      <th>简介</th>
-      <th align="center">官网</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center"><img src="./docs/sponsored/sophnet.png" alt="算能云 Logo" width="48"></td>
-      <td align="center"><b>算能云</b></td>
-      <td align="center">💻 算力赞助</td>
-      <td>致力于打造更快、更稳、更省的一站式模型推理API服务平台</td>
-      <td align="center"><a href="https://www.sophnet.com/">官网</a></td>
-    </tr>
-    <tr>
-      <td align="center"><img src="./docs/sponsored/atlascloud.png" alt="Atlas Cloud Logo" width="48"></td>
-      <td align="center"><b>Atlas Cloud</b></td>
-      <td align="center">💻 算力赞助</td>
-      <td>全球首个全模态推理平台。对话、图像、视频、音频——全部统一 API。300+ 模型，OpenAI 兼容。</td>
-      <td align="center"><a href="https://www.atlascloud.ai/">官网</a></td>
-    </tr>
-    <tr>
-      <td align="center"><img src="./docs/sponsored/hunyuan.webp" alt="腾讯混元3D Logo" width="48"></td>
-      <td align="center"><b>腾讯混元3D</b></td>
-      <td align="center">🌐 世界模型技术支持</td>
-      <td>腾讯混元3D AI创作引擎基于腾讯混元3D生成大模型2.5版本，业界首个一站式3D内容AI创作平台。具备文生、图生3D、3D动画生成、纹理生成等功能，支持草图生3D、3D人物生成，有低多边形模型生成优势。</td>
-      <td align="center"><a href="https://3d.hunyuan.tencent.com/">官网</a></td>
-    </tr>
-  </tbody>
-</table>
-
-完整的第三方依赖清单请查阅 `NOTICES.txt`
-
-##### copyright © 北京爱阿科技有限公司
-
-
-
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=100&section=footer" width="100%"/>
+本仓库对原项目的署名只用于说明代码来源和表达尊重，不代表 HBAI-Ltd 对本二次开发版本提供背书、担保或技术支持。

@@ -3,7 +3,7 @@
 node_modules
 .vscode
 .zcode
-.trae
+.codex
 
 # output
 out
