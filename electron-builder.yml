@@ -22,8 +22,6 @@ files:
   - "!scripts/*.ts"
 
 asar: true
-npmRebuild: false
-afterPack: ./scripts/afterPackNative.cjs
 asarUnpack:
   - "**/node_modules/sharp/**"
   - "**/node_modules/@img/**"
