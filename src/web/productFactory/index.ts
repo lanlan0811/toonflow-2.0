@@ -99,8 +99,9 @@ function injectMenu() {
 }
 
 function ensureRoot() {
-  const host = document.querySelector<HTMLElement>(".viewBox");
+  const host = document.querySelector<HTMLElement>(".viewBox") || document.querySelector<HTMLElement>("#app");
   if (!host) return null;
+  if (host.id === "app") host.classList.add("pf-standalone-host");
   let root = document.getElementById(ROOT_ID);
   if (!root) { root = document.createElement("div"); root.id = ROOT_ID; host.appendChild(root); }
   host.classList.add("pf-host-active"); state.root = root; state.host = host;
@@ -110,7 +111,7 @@ function ensureRoot() {
 function cleanup() {
   clearInterval(state.pollTimer); state.pollTimer = 0;
   document.getElementById(ROOT_ID)?.remove();
-  state.host?.classList.remove("pf-host-active"); state.root = null; state.host = null; state.projectId = 0;
+  state.host?.classList.remove("pf-host-active", "pf-standalone-host"); state.root = null; state.host = null; state.projectId = 0;
 }
 
 function scheduleRender() {
@@ -121,6 +122,7 @@ function scheduleRender() {
 async function renderRoute() {
   injectMenu();
   document.querySelectorAll(".card").forEach((card) => card.classList.toggle("pf-hidden-native", !isFactoryRoute() && String(card.textContent || "").includes("__TOONFLOW_PRODUCT_")));
+  if (routeInfo().path === "/") { navigate(); return; }
   if (routeInfo().path === LEGACY_ROUTE) { navigate(routeInfo().projectId || undefined); return; }
   if (routeInfo().path !== ROUTE) { cleanup(); return; }
   if (!ensureVueRoute()) { setTimeout(scheduleRender, 100); return; }

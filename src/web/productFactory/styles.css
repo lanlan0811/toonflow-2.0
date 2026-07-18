@@ -1,4 +1,4 @@
-#tf-product-factory-menu{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:3.2rem;cursor:pointer;color:var(--td-text-color-secondary,#64748b)}
+.pf-standalone-host{position:relative;min-height:100vh}.pf-standalone-host.pf-host-active{overflow:hidden}#tf-product-factory-menu{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:3.2rem;cursor:pointer;color:var(--td-text-color-secondary,#64748b)}
 #tf-product-factory-menu button{display:grid;place-items:center;width:2.5rem;height:2.5rem;border:0;border-radius:.75rem;color:inherit;background:transparent;cursor:pointer}
 #tf-product-factory-menu button:hover{color:#0f766e;background:#ecfdf5}
 #tf-product-factory-menu.active button{color:#fff;background:linear-gradient(145deg,#0f766e,#115e59);box-shadow:0 8px 20px #0f766e40}
