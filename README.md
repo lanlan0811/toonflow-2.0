@@ -19,7 +19,10 @@
 > - [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/HBAI-Ltd/Toonflow-web) <https://github.com/HBAI-Ltd/Toonflow-web>
 > - [![Gitee](https://img.shields.io/badge/Gitee-C71D23?style=flat-square&logo=gitee&logoColor=white)](https://gitee.com/HBAI-Ltd/Toonflow-web) <https://gitee.com/HBAI-Ltd/Toonflow-web>
 >
-> 当前二次开发仓库：[![Gitee](https://img.shields.io/badge/Gitee-C71D23?style=flat-square&logo=gitee&logoColor=white)](https://gitee.com/lan0811/toonflaw-2.0) <https://gitee.com/lan0811/toonflaw-2.0>
+> 当前二次开发仓库：
+>
+> - [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/lanlan0811/toonflaw-2.0.git) <https://github.com/lanlan0811/toonflaw-2.0.git>
+> - [![Gitee](https://img.shields.io/badge/Gitee-C71D23?style=flat-square&logo=gitee&logoColor=white)](https://gitee.com/lan0811/toonflaw-2.0) <https://gitee.com/lan0811/toonflaw-2.0>
 
 <div align="center">
   <table>
@@ -54,6 +57,9 @@
         </a>
         <a href="https://gitee.com/lan0811/toonflaw-2.0">
           <img src="https://img.shields.io/badge/Gitee-二开仓库-2F54EB?style=flat-square&amp;logo=gitee&amp;logoColor=white" alt="Toonflow 二次开发仓库" />
+        </a>
+        <a href="https://github.com/lanlan0811/toonflaw-2.0.git">
+          <img src="https://img.shields.io/badge/GitHub-二开仓库-181717?style=flat-square&amp;logo=github&amp;logoColor=white" alt="Toonflow 二次开发 GitHub 仓库" />
         </a>
       </td>
     </tr>
@@ -249,7 +255,12 @@
 ## 获取与安装
 
 ```bash
+# GitHub
+git clone https://github.com/lanlan0811/toonflaw-2.0.git
+
+# 或 Gitee
 git clone https://gitee.com/lan0811/toonflaw-2.0.git
+
 cd toonflaw-2.0
 yarn install --frozen-lockfile
 ```
