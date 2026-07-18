@@ -114,7 +114,7 @@ export function renderCanvas(host: HTMLElement, initialGraph: FactoryGraph, opti
     element.dataset.nodeId = node.id;
     element.style.left = `${node.position.x}px`; element.style.top = `${node.position.y}px`;
     const status = artifact?.state || (node.type === "review" ? "gate" : node.type === "source" ? "ready" : "idle");
-    const preview = artifact?.url ? `<img src="${h(artifact.url)}" alt="">` : `<div class="pf-node-icon">${node.type === "video" ? "▶" : node.type === "image" ? "◇" : node.type === "review" ? "✓" : node.type === "note" ? "T" : "◆"}</div>`;
+    const preview = artifact?.url ? (artifact.mediaType === "video" ? `<video class="pf-node-video-preview" muted playsinline preload="metadata" src="${h(artifact.url)}" aria-label="视频预览"></video>` : `<img src="${h(artifact.url)}" alt="">`) : `<div class="pf-node-icon">${node.type === "video" ? "▶" : node.type === "image" ? "◇" : node.type === "review" ? "✓" : node.type === "note" ? "T" : "◆"}</div>`;
     element.innerHTML = `${portMarkup(node, "inputs")}<header><small>${h(node.type)} · ${h(node.data.aspectRatio || "")}</small><em class="pf-node-state state-${h(status)}">${h(status)}</em></header><div class="pf-node-main">${preview}<div><strong>${h(nodeLabel(node))}</strong><span>${h(node.data.modelOverride || (node.type === "image" || node.type === "video" ? "继承项目模型" : node.data.outputKey || ""))}</span></div></div>${artifact?.inputChanged ? `<mark>输入已变化</mark>` : ""}${executable(node) ? `<footer><button data-run-node="${h(node.id)}">运行</button><button data-run-downstream="${h(node.id)}">运行下游</button></footer>` : ""}${portMarkup(node, "outputs")}`;
     nodesHost.appendChild(element);
     bindNode(element, node);

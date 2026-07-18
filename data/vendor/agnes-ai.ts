@@ -193,6 +193,43 @@ function extractBase64WithHead(ref: ReferenceList): string {
   return ref.base64.startsWith("data:") ? ref.base64 : `data:image/png;base64,${ref.base64}`;
 }
 
+function isHttpUrl(value: unknown): value is string {
+  return typeof value === "string" && /^https?:\/\/[^\s]+$/i.test(value.trim());
+}
+
+function extractVideoUrl(value: any): string | null {
+  const values = [
+    value,
+    value?.url,
+    value?.video_url,
+    value?.output?.url,
+    value?.output?.video_url,
+    value?.data?.url,
+    value?.data?.video_url,
+    Array.isArray(value?.data) ? value.data[0]?.url : null,
+    Array.isArray(value?.data) ? value.data[0]?.video_url : null,
+  ];
+  return values.find((candidate) => isHttpUrl(candidate))?.trim() || null;
+}
+
+async function getVideoResultById(baseUrl: string, videoId: string, headers: Record<string, string>): Promise<string | null> {
+  const apiRoot = baseUrl.replace(/\/+$/, "").replace(/\/v1$/i, "");
+  const response = await axios.get(`${apiRoot}/agnesapi`, { params: { video_id: videoId }, headers });
+  return extractVideoUrl(response.data);
+}
+
+async function normalizeVideoResult(value: unknown): Promise<string> {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("视频任务已完成，但供应商没有返回视频地址");
+  }
+  const result = value.trim();
+  if (result.startsWith("data:video/")) return result;
+  if (!isHttpUrl(result)) {
+    throw new Error(`视频任务已完成，但返回的不是有效视频 URL（${result.slice(0, 120)}）`);
+  }
+  return await urlToBase64(result);
+}
+
 // ============================================================
 // 适配器函数
 // ============================================================
@@ -335,20 +372,25 @@ const videoRequest = async (config: VideoConfig, model: VideoModel): Promise<str
 
   logger("提交视频生成任务...");
   const createResponse = await axios.post(`${baseUrl}/videos`, requestBody, { headers });
-  const taskId = createResponse.data.id;
+  const createData = createResponse.data || {};
+  const taskId = createData.id || createData.task_id;
+  let videoId = createData.video_id;
+  if (!taskId) throw new Error("视频生成任务创建成功，但没有返回 task_id");
   logger(`任务已创建，任务 ID: ${taskId}`);
 
   const pollResult = await pollTask(async () => {
     logger("轮询任务状态...");
     const statusResponse = await axios.get(`${baseUrl}/videos/${taskId}`, { headers });
-    const status = statusResponse.data.status;
+    const statusData = statusResponse.data || {};
+    const status = statusData.status;
 
     if (status === "completed") {
-      // 文档中视频 URL 字段为 remixed_from_video_id
-      const videoUrl = statusResponse.data.remixed_from_video_id || statusResponse.data.video_url;
+      videoId = statusData.video_id || statusData.remixed_from_video_id || videoId;
+      let videoUrl = extractVideoUrl(statusData);
+      if (!videoUrl && videoId) videoUrl = await getVideoResultById(baseUrl, String(videoId), headers);
       return { completed: true, data: videoUrl };
     } else if (status === "failed" || status === "error") {
-      return { completed: true, error: `视频生成失败: ${JSON.stringify(statusResponse.data)}` };
+      return { completed: true, error: `视频生成失败: ${JSON.stringify(statusData)}` };
     }
     return { completed: false };
   }, 5000, 600000);
@@ -356,7 +398,7 @@ const videoRequest = async (config: VideoConfig, model: VideoModel): Promise<str
   if (pollResult.error) throw new Error(pollResult.error);
 
   logger("视频生成成功，转换为 base64...");
-  return await urlToBase64(pollResult.data!);
+  return await normalizeVideoResult(pollResult.data);
 };
 
 const ttsRequest = async (config: TTSConfig, model: TTSModel): Promise<string> => {

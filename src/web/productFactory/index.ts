@@ -244,6 +244,13 @@ function saveGraph(graph: FactoryGraph, projectId: number, item: FactoryItem) {
 
 function selectedNode() { return state.canvas?.getGraph().nodes.find((node) => node.id === state.selectedNodes[0]) || state.current?.workflow.graph.nodes.find((node) => node.id === state.selectedNodes[0]); }
 function nodeArtifacts(node: FactoryGraphNode) { return (state.current?.artifacts || []).filter((artifact) => artifact.workflowNodeId === node.id || (!artifact.workflowNodeId && artifact.slotKey === node.data.slotKey && artifact.aspectRatio === node.data.aspectRatio)); }
+function artifactMedia(artifact: Artifact, compact = false) {
+  if (!artifact.url) return `<div class="pf-candidate-error">${h(artifact.errorReason || artifact.state)}</div>`;
+  if (artifact.mediaType === "video") {
+    return `<video class="${compact ? "pf-node-video-preview" : "pf-artifact-video"}" controls playsinline preload="metadata" src="${h(artifact.url)}" aria-label="视频候选 v${artifact.version}"></video>`;
+  }
+  return `<img src="${h(artifact.url)}" alt="${artifact.mediaType === "image" ? "图片候选" : "生成产物"}">`;
+}
 
 function renderInspector() {
   const host = state.root?.querySelector<HTMLElement>("[data-inspector]"); if (!host) return;
@@ -259,7 +266,7 @@ function renderInspector() {
     <form class="pf-inspector-form" data-node-form><label>显示名称<input name="label" value="${h(node.data.label || "")}"></label><label>节点模型<select name="modelOverride">${modelOptions(models, String(node.data.modelOverride || ""), true)}</select></label><div class="pf-grid2"><label>角色键<input value="${h(node.data.roleKey)}" disabled></label><label>画幅<input value="${h(node.data.aspectRatio)}" disabled></label></div>${node.type === "image" ? `<label>画质<select name="quality"><option ${runtime.quality === "1K" ? "selected" : ""}>1K</option><option ${runtime.quality === "2K" || !runtime.quality ? "selected" : ""}>2K</option><option ${runtime.quality === "4K" ? "selected" : ""}>4K</option></select></label>` : `<div class="pf-grid2"><label>分辨率<input name="resolution" value="${h(runtime.resolution || "720p")}"></label><label>时长<input type="number" name="duration" min="1" max="30" value="${h(runtime.duration || 5)}"></label></div><label class="pf-check"><input type="checkbox" name="audio" ${runtime.audio ? "checked" : ""}> 生成音频</label>`}<button class="pf-btn pf-primary">保存节点配置</button></form>
     <section class="pf-inspector-section"><header><strong>真实输入</strong><span>${incoming.length}</span></header>${incoming.length ? incoming.map((edge) => `<div class="pf-input-row"><i></i><span>${h(edge.sourcePort)} → ${h(edge.targetPort)}</span><small>${h(edge.source)}</small></div>`).join("") : `<p>当前节点没有连线输入。</p>`}${node.type === "video" ? videoBindingsMarkup(node) : ""}</section>
     <section class="pf-inspector-section"><header><strong>提示词与执行</strong></header><div class="pf-button-grid"><button class="pf-btn" data-prompt>编辑提示词</button><button class="pf-btn" data-run>预览并运行</button><button class="pf-btn" data-run-down>运行下游</button></div></section>
-    <section class="pf-inspector-section"><header><strong>候选与历史</strong><span>${artifacts.length}</span></header><div class="pf-candidate-grid">${artifacts.slice(0, 12).map((artifact) => artifact.url ? `<figure class="${artifact.approved ? "approved" : ""}"><img src="${h(artifact.url)}" alt=""><figcaption>v${artifact.version} · ${h(artifact.state)}${artifact.inputChanged ? " · 已失效" : ""}</figcaption></figure>` : `<div class="pf-candidate-error">${h(artifact.errorReason || artifact.state)}</div>`).join("") || `<p>尚无候选结果。</p>`}</div>${current?.errorReason ? `<div class="pf-node-error">${h(current.errorReason)}</div>` : ""}</section>`;
+    <section class="pf-inspector-section"><header><strong>${node.type === "video" ? "视频候选与历史" : "候选与历史"}</strong><span>${artifacts.length}</span></header><div class="pf-candidate-grid">${artifacts.slice(0, 12).map((artifact) => artifact.url ? `<figure class="${artifact.approved ? "approved" : ""}${artifact.mediaType === "video" ? " video-candidate" : ""}">${artifactMedia(artifact)}<figcaption>v${artifact.version} · ${h(artifact.state)}${artifact.inputChanged ? " · 已失效" : ""}</figcaption></figure>` : artifactMedia(artifact)).join("") || `<p>尚无候选结果。</p>`}</div>${node.type === "video" && artifacts.some((artifact) => artifact.url) ? `<p class="pf-media-hint">点击播放控件即可预览；右键视频可另存为。</p>` : ""}${current?.errorReason ? `<div class="pf-node-error">${h(current.errorReason)}</div>` : ""}</section>`;
   bindNodeForm(host, node);
   host.querySelector("[data-prompt]")?.addEventListener("click", () => showPromptDrawer(node));
   host.querySelector("[data-run]")?.addEventListener("click", () => void previewAndStart({ type: "node", productId: state.currentId, nodeId: node.id, includeDownstream: false }));
@@ -349,8 +356,18 @@ function showJobsDrawer() { overlay("任务中心", `<div data-job-content class
 async function refreshProgress() {
   if (!state.projectId) return;
   try {
-    const progress = await apiPost<any>("/api/productFactory/jobs/progress", { projectId: state.projectId, ...(state.selected.size ? { productIds: [...state.selected] } : {}) }); const host = state.root?.querySelector<HTMLElement>("[data-job-content]"); if (!host) return;
-    host.className = "pf-jobs"; host.innerHTML = `<div class="pf-stat-grid">${["queued", "running", "success", "failed", "paused", "interrupted"].map((key) => `<div><b>${progress.counts[key] || 0}</b><span>${key}</span></div>`).join("")}</div><div class="pf-job-list">${progress.jobs.map((job: any) => `<div><span><b>${h(job.slotKey)}</b><small>${h(job.workflowNodeId || "")} · ${h(job.aspectRatio)}</small></span><em class="state-${h(job.state)}">${h(job.state)}</em><p>${h(job.errorReason || "")}</p></div>`).join("") || `<p>尚无任务。</p>`}</div><div class="pf-actions"><button class="pf-btn" data-resume>恢复暂停/中断</button><button class="pf-btn" data-retry-failed>重试失败任务</button></div>`;
+    const progress = await apiPost<any>("/api/productFactory/jobs/progress", { projectId: state.projectId, ...(state.selected.size ? { productIds: [...state.selected] } : {}) });
+    const host = state.root?.querySelector<HTMLElement>("[data-job-content]"); if (!host) return;
+    host.className = "pf-jobs";
+    host.innerHTML = `<div class="pf-stat-grid">${["queued", "running", "success", "failed", "paused", "interrupted"].map((key) => `<div><b>${progress.counts[key] || 0}</b><span>${key}</span></div>`).join("")}</div><div class="pf-job-list">${progress.jobs.map((job: any) => { const viewVideo = job.phase === "video" && job.state === "success" && job.workflowNodeId; return `<div><span><b>${h(job.slotKey)}</b><small>${h(job.workflowNodeId || "")} · ${h(job.aspectRatio)}</small></span><em class="state-${h(job.state)}">${h(job.state)}</em>${viewVideo ? `<button class="pf-btn pf-job-view" data-view-video data-product-id="${h(job.productId)}" data-node-id="${h(job.workflowNodeId)}">查看视频</button>` : ""}<p>${h(job.errorReason || "")}</p></div>`; }).join("") || `<p>尚无任务。</p>`}</div><div class="pf-actions"><button class="pf-btn" data-resume>恢复暂停/中断</button><button class="pf-btn" data-retry-failed>重试失败任务</button></div>`;
+    host.querySelectorAll<HTMLButtonElement>("[data-view-video]").forEach((button) => button.addEventListener("click", async () => {
+      try {
+        await loadProduct(Number(button.dataset.productId));
+        renderWorkspace();
+        state.canvas?.select([button.dataset.nodeId || ""]);
+        toast("已打开视频节点，可在右侧播放器预览", "success");
+      } catch (error) { toast((error as Error).message, "error"); }
+    }));
     host.querySelector("[data-resume]")?.addEventListener("click", async () => { await apiPost("/api/productFactory/jobs/resume", { projectId: state.projectId }); toast("可恢复任务已重新入队", "success"); void refreshProgress(); });
     host.querySelector("[data-retry-failed]")?.addEventListener("click", async () => { const ids = progress.jobs.filter((job: any) => ["failed", "interrupted"].includes(job.state)).map((job: any) => job.id); if (!ids.length) return toast("没有可重试任务", "info"); await apiPost("/api/productFactory/jobs/retry", { projectId: state.projectId, jobIds: ids }); toast("失败任务已重试", "success"); void refreshProgress(); });
   } catch { /* polling is non-blocking */ }
