@@ -42,6 +42,13 @@
         <a href="https://gitee.com/HBAI-Ltd">
           <img src="https://img.shields.io/badge/Gitee-原创主页-C71D23?style=flat-square&amp;logo=gitee&amp;logoColor=white" alt="HBAI-Ltd Gitee 主页" />
         </a>
+        <br />
+        <a href="https://github.com/HBAI-Ltd/Toonflow-app">
+          <img src="https://img.shields.io/badge/GitHub-原始仓库-181717?style=flat-square&amp;logo=github&amp;logoColor=white" alt="Toonflow 原始 GitHub 仓库" />
+        </a>
+        <a href="https://gitee.com/HBAI-Ltd/Toonflow-app">
+          <img src="https://img.shields.io/badge/Gitee-原始仓库-C71D23?style=flat-square&amp;logo=gitee&amp;logoColor=white" alt="Toonflow 原始 Gitee 仓库" />
+        </a>
       </td>
       <td align="center" width="50%">
         <a href="https://gitee.com/lan0811">
@@ -55,6 +62,10 @@
         <a href="https://gitee.com/lan0811">
           <img src="https://img.shields.io/badge/Gitee-我的主页-C71D23?style=flat-square&amp;logo=gitee&amp;logoColor=white" alt="Lan0811 Gitee 主页" />
         </a>
+        <a href="https://github.com/lanlan0811">
+          <img src="https://img.shields.io/badge/GitHub-我的主页-181717?style=flat-square&amp;logo=github&amp;logoColor=white" alt="Lan0811 GitHub 主页" />
+        </a>
+        <br />
         <a href="https://gitee.com/lan0811/toonflaw-2.0">
           <img src="https://img.shields.io/badge/Gitee-二开仓库-2F54EB?style=flat-square&amp;logo=gitee&amp;logoColor=white" alt="Toonflow 二次开发仓库" />
         </a>
