@@ -23,6 +23,7 @@
 >
 > - [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/lanlan0811/toonflaw-2.0.git) <https://github.com/lanlan0811/toonflaw-2.0.git>
 > - [![Gitee](https://img.shields.io/badge/Gitee-C71D23?style=flat-square&logo=gitee&logoColor=white)](https://gitee.com/lan0811/toonflow-2.0) <https://gitee.com/lan0811/toonflow-2.0>
+> - [![GitCode](https://img.shields.io/badge/GitCode-FC5531?style=flat-square&logo=git&logoColor=white)](https://gitcode.com/lan0811/toonflow-2.0) <https://gitcode.com/lan0811/toonflow-2.0>
 
 <div align="center">
   <table>
@@ -71,6 +72,9 @@
         </a>
         <a href="https://github.com/lanlan0811/toonflaw-2.0.git">
           <img src="https://img.shields.io/badge/GitHub-二开仓库-181717?style=flat-square&amp;logo=github&amp;logoColor=white" alt="Toonflow 二次开发 GitHub 仓库" />
+        </a>
+        <a href="https://gitcode.com/lan0811/toonflow-2.0">
+          <img src="https://img.shields.io/badge/GitCode-二开仓库-FC5531?style=flat-square&amp;logo=git&amp;logoColor=white" alt="Toonflow 二次开发 GitCode 仓库" />
         </a>
       </td>
     </tr>
@@ -271,6 +275,9 @@ git clone https://github.com/lanlan0811/toonflaw-2.0.git
 
 # 或 Gitee
 git clone https://gitee.com/lan0811/toonflow-2.0.git
+
+# 或 GitCode
+git clone https://gitcode.com/lan0811/toonflow-2.0.git
 
 cd toonflaw-2.0
 yarn install --frozen-lockfile
