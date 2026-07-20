@@ -4,6 +4,8 @@
   const VERSION = 3;
   const NODE_WIDTH = { upload: 320, generated: 430 };
   const TYPE_ORDER = { role: 0, scene: 1, tool: 2 };
+  const AUTO_PAN_THRESHOLD = 64;
+  const AUTO_PAN_MAX_SPEED = 720;
   let activeEditor = null;
 
   function clone(value) {
@@ -18,6 +20,20 @@
 
   function uid(prefix) {
     return prefix + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function finiteNumber(value, fallback) {
+    if (value == null || value === "") return fallback;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+
+  function validViewport(value) {
+    return !!value
+      && Number.isFinite(finiteNumber(value.x, NaN))
+      && Number.isFinite(finiteNumber(value.y, NaN))
+      && Number.isFinite(finiteNumber(value.zoom, NaN))
+      && Number(value.zoom) > 0;
   }
 
   function apiData(result) {
@@ -79,6 +95,9 @@
     this.selectedEdgeId = null;
     this.historyTimer = 0;
     this.listeners = [];
+    this.hasSavedViewport = false;
+    this.autoPanFrame = 0;
+    this.autoPanTime = 0;
   }
 
   Editor.prototype.listen = function (target, type, listener, options) {
@@ -111,15 +130,20 @@
       '</header>',
       '<main class="tf-sic-stage" tabindex="0">',
       '  <div class="tf-sic-grid"></div>',
-      '  <div class="tf-sic-world"><svg class="tf-sic-edges" aria-hidden="true"><g data-edge-list></g><path data-edge-preview></path></svg><div class="tf-sic-nodes" data-nodes></div><svg class="tf-sic-edge-controls" aria-hidden="true"><g data-edge-controls></g></svg></div>',
+      '  <svg class="tf-sic-edges" aria-hidden="true"><g data-edge-viewport><g data-edge-list></g><path data-edge-preview></path></g></svg>',
+      '  <div class="tf-sic-world"><div class="tf-sic-nodes" data-nodes></div></div>',
+      '  <svg class="tf-sic-edge-controls" aria-hidden="true"><g data-edge-control-viewport><g data-edge-controls></g></g></svg>',
       '  <div class="tf-sic-help">拖动画布平移 · 滚轮缩放 · 从右侧圆点拖到生成节点左侧圆点连线 · 单击连线后点击中间的 × 断开连接（也可双击连线）</div>',
       '</main>'
     ].join("");
     document.body.appendChild(this.root);
     document.body.classList.add("tf-sic-open");
     this.stage = this.root.querySelector(".tf-sic-stage");
+    this.grid = this.root.querySelector(".tf-sic-grid");
     this.world = this.root.querySelector(".tf-sic-world");
     this.nodesLayer = this.root.querySelector("[data-nodes]");
+    this.edgeViewport = this.root.querySelector("[data-edge-viewport]");
+    this.edgeControlViewport = this.root.querySelector("[data-edge-control-viewport]");
     this.edgeList = this.root.querySelector("[data-edge-list]");
     this.edgeControls = this.root.querySelector("[data-edge-controls]");
     this.edgePreview = this.root.querySelector("[data-edge-preview]");
@@ -129,10 +153,12 @@
 
     try {
       await this.load();
+      this.render();
+      await new Promise(function (resolve) { requestAnimationFrame(resolve); });
+      if (this.hasSavedViewport) this.applyViewport();
+      else this.fitView(false);
       this.history = [this.snapshot()];
       this.historyIndex = 0;
-      this.render();
-      requestAnimationFrame(this.fitView.bind(this, false));
       this.setStatus("画布已就绪", "success");
       this.updateToolbar();
     } catch (error) {
@@ -165,6 +191,7 @@
       ratio: String((project && project.videoRatio) || "16:9")
     };
     const flow = results[3] ? apiData(results[3]) : null;
+    this.hasSavedViewport = false;
     this.graph = flow && Array.isArray(flow.nodes) ? this.normalizeSavedGraph(flow) : this.createInitialGraph();
   };
 
@@ -230,12 +257,16 @@
     const rawEdges = clone(flow.edges || []).filter(function (edge) { return edge && edge.source && edge.target; });
     const metaNode = rawNodes.find(function (node) { return node.data && node.data.canvasMeta; });
     const meta = metaNode && metaNode.data.canvasMeta || {};
+    this.hasSavedViewport = validViewport(meta.viewport);
     const graph = {
       nodes: rawNodes.map(function (node, index) {
         const data = node.data || {};
         const normalized = {
           id: String(node.id || uid(node.type)), type: node.type,
-          position: { x: Number(node.position && node.position.x || 100 + index * 380), y: Number(node.position && node.position.y || 100) },
+          position: {
+            x: finiteNumber(node.position && node.position.x, 100 + index * 380),
+            y: finiteNumber(node.position && node.position.y, 100)
+          },
           data: data
         };
         if (node.type === "upload") {
@@ -267,7 +298,9 @@
         return normalized;
       }, this),
       edges: rawEdges.map(function (edge, index) { return { id: String(edge.id || uid("edge")), source: String(edge.source), target: String(edge.target), order: Number(edge.order ?? index) }; }),
-      viewport: meta.viewport && Number.isFinite(Number(meta.viewport.zoom)) ? clone(meta.viewport) : { x: 80, y: 80, zoom: 0.8 },
+      viewport: this.hasSavedViewport
+        ? { x: Number(meta.viewport.x), y: Number(meta.viewport.y), zoom: Math.max(0.25, Math.min(2, Number(meta.viewport.zoom))) }
+        : { x: 80, y: 80, zoom: 0.8 },
       suppressedAssetIds: (meta.suppressedAssetIds || []).map(Number).filter(Boolean)
     };
     this.reconcileAssets(graph);
@@ -458,12 +491,14 @@
       self.graph.viewport.y = self.panning.viewport.y + event.clientY - self.panning.y;
       self.applyViewport();
     });
-    this.listen(this.stage, "pointerup", function () {
+    const finishPanning = function () {
       if (!self.panning) return;
       self.panning = null;
       self.stage.classList.remove("is-panning");
       self.scheduleHistory();
-    });
+    };
+    this.listen(this.stage, "pointerup", finishPanning);
+    this.listen(this.stage, "pointercancel", finishPanning);
     this.listen(this.stage, "wheel", function (event) {
       event.preventDefault();
       const rect = self.stage.getBoundingClientRect();
@@ -474,10 +509,16 @@
       const control = event.ctrlKey || event.metaKey;
       if (control && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? self.redo() : self.undo(); }
       else if (control && event.key.toLowerCase() === "y") { event.preventDefault(); self.redo(); }
+      else if (event.key === "Escape" && self.connecting) { event.preventDefault(); self.cancelConnection(); }
       else if (event.key === "Escape") self.close(false);
     });
     this.listen(window, "pointermove", this.onConnectionMove.bind(this));
     this.listen(window, "pointerup", this.onConnectionEnd.bind(this));
+    this.listen(window, "pointercancel", this.cancelConnection.bind(this));
+    this.listen(window, "blur", function () {
+      if (self.connecting) self.cancelConnection();
+      if (self.dragging) self.finishNodeDrag(self.dragging.nodeId);
+    });
   };
 
   Editor.prototype.worldPoint = function (clientX, clientY) {
@@ -490,6 +531,83 @@
 
   Editor.prototype.centerPoint = function () {
     return this.worldPoint(this.stage.getBoundingClientRect().left + this.stage.clientWidth / 2, this.stage.getBoundingClientRect().top + this.stage.clientHeight / 2);
+  };
+
+  Editor.prototype.activeAutoPanGesture = function () {
+    return this.dragging || this.connecting;
+  };
+
+  Editor.prototype.autoPanVelocity = function (position, start, end) {
+    if (position < start + AUTO_PAN_THRESHOLD) {
+      return AUTO_PAN_MAX_SPEED * Math.max(0, Math.min(1, (start + AUTO_PAN_THRESHOLD - position) / AUTO_PAN_THRESHOLD));
+    }
+    if (position > end - AUTO_PAN_THRESHOLD) {
+      return -AUTO_PAN_MAX_SPEED * Math.max(0, Math.min(1, (position - end + AUTO_PAN_THRESHOLD) / AUTO_PAN_THRESHOLD));
+    }
+    return 0;
+  };
+
+  Editor.prototype.startAutoPan = function () {
+    if (this.autoPanFrame) return;
+    const self = this;
+    this.autoPanTime = performance.now();
+    const tick = function (time) {
+      const gesture = self.activeAutoPanGesture();
+      if (!gesture || !self.root || !self.root.isConnected) {
+        self.autoPanFrame = 0;
+        self.autoPanTime = 0;
+        return;
+      }
+      const deltaTime = Math.max(0, Math.min(0.05, (time - self.autoPanTime) / 1000 || 0));
+      self.autoPanTime = time;
+      const rect = self.stage.getBoundingClientRect();
+      const velocityX = self.autoPanVelocity(gesture.clientX, rect.left, rect.right);
+      const velocityY = self.autoPanVelocity(gesture.clientY, rect.top, rect.bottom);
+      if (velocityX || velocityY) {
+        self.graph.viewport.x += velocityX * deltaTime;
+        self.graph.viewport.y += velocityY * deltaTime;
+        gesture.viewportChanged = true;
+        if (self.dragging) self.updateDraggedNode();
+        if (self.connecting) self.connecting.current = self.worldPoint(self.connecting.clientX, self.connecting.clientY);
+        self.applyViewport();
+        self.renderEdges();
+      }
+      self.autoPanFrame = requestAnimationFrame(tick);
+    };
+    this.autoPanFrame = requestAnimationFrame(tick);
+  };
+
+  Editor.prototype.stopAutoPan = function () {
+    if (this.autoPanFrame) cancelAnimationFrame(this.autoPanFrame);
+    this.autoPanFrame = 0;
+    this.autoPanTime = 0;
+  };
+
+  Editor.prototype.updateDraggedNode = function () {
+    const drag = this.dragging;
+    if (!drag) return;
+    const node = this.node(drag.nodeId);
+    if (!node) return;
+    const point = this.worldPoint(drag.clientX, drag.clientY);
+    const nextX = point.x - drag.grabOffset.x;
+    const nextY = point.y - drag.grabOffset.y;
+    const screenDistance = (Math.abs(nextX - drag.position.x) + Math.abs(nextY - drag.position.y)) * this.graph.viewport.zoom;
+    node.position.x = nextX;
+    node.position.y = nextY;
+    drag.moved = drag.moved || screenDistance > 2;
+    const article = this.nodesLayer.querySelector('[data-node-id="' + CSS.escape(node.id) + '"]');
+    if (article) {
+      article.style.left = node.position.x + "px";
+      article.style.top = node.position.y + "px";
+    }
+  };
+
+  Editor.prototype.finishNodeDrag = function (nodeId) {
+    const drag = this.dragging;
+    if (!drag || drag.nodeId !== nodeId) return;
+    this.dragging = null;
+    this.stopAutoPan();
+    if (drag.moved || drag.viewportChanged) this.commitHistory();
   };
 
   Editor.prototype.addImageNode = function () {
@@ -831,34 +949,37 @@
     const handle = article.querySelector("[data-drag-handle]");
     handle.addEventListener("pointerdown", function (event) {
       if (event.button !== 0 || event.target.closest("button")) return;
-      self.dragging = { nodeId: node.id, x: event.clientX, y: event.clientY, position: clone(node.position), moved: false };
+      const point = self.worldPoint(event.clientX, event.clientY);
+      self.dragging = {
+        nodeId: node.id, pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY,
+        position: clone(node.position), grabOffset: { x: point.x - node.position.x, y: point.y - node.position.y },
+        moved: false, viewportChanged: false
+      };
       handle.setPointerCapture(event.pointerId);
+      self.startAutoPan();
       event.stopPropagation();
     });
     handle.addEventListener("pointermove", function (event) {
       if (!self.dragging || self.dragging.nodeId !== node.id) return;
-      const dx = (event.clientX - self.dragging.x) / self.graph.viewport.zoom;
-      const dy = (event.clientY - self.dragging.y) / self.graph.viewport.zoom;
-      node.position.x = Math.max(0, self.dragging.position.x + dx);
-      node.position.y = Math.max(0, self.dragging.position.y + dy);
-      self.dragging.moved = self.dragging.moved || Math.abs(dx) + Math.abs(dy) > 2;
-      article.style.left = node.position.x + "px";
-      article.style.top = node.position.y + "px";
+      self.dragging.clientX = event.clientX;
+      self.dragging.clientY = event.clientY;
+      self.updateDraggedNode();
       self.renderEdges();
     });
-    handle.addEventListener("pointerup", function () {
-      if (!self.dragging || self.dragging.nodeId !== node.id) return;
-      const moved = self.dragging.moved;
-      self.dragging = null;
-      if (moved) self.commitHistory();
-    });
+    handle.addEventListener("pointerup", function () { self.finishNodeDrag(node.id); });
+    handle.addEventListener("pointercancel", function () { self.finishNodeDrag(node.id); });
+    handle.addEventListener("lostpointercapture", function () { self.finishNodeDrag(node.id); });
     const deleteButton = article.querySelector("[data-node-delete]");
     if (deleteButton) deleteButton.addEventListener("click", function () { self.removeNode(node.id); });
     const output = article.querySelector("[data-port-out]");
     if (output) output.addEventListener("pointerdown", function (event) {
       event.preventDefault(); event.stopPropagation();
-      self.connecting = { source: node.id, current: self.worldPoint(event.clientX, event.clientY) };
+      self.connecting = {
+        source: node.id, current: self.worldPoint(event.clientX, event.clientY),
+        clientX: event.clientX, clientY: event.clientY, viewportChanged: false
+      };
       self.root.classList.add("is-connecting");
+      self.startAutoPan();
       self.renderEdges();
     });
     if (node.type === "upload") {
@@ -1032,10 +1153,10 @@
 
   Editor.prototype.addEdge = function (sourceId, targetId) {
     const source = this.node(sourceId); const target = this.node(targetId);
-    if (!source || !target || target.type !== "generated" || sourceId === targetId) { this.setStatus("连接目标必须是另一个生成节点", "error"); return; }
-    if (!this.imageForNode(source)) { this.setStatus("请先为来源节点准备图片", "error"); return; }
-    if (this.graph.edges.some(function (edge) { return edge.source === sourceId && edge.target === targetId; })) { this.setStatus("这两个节点已经连接", "error"); return; }
-    if (this.hasPath(targetId, sourceId)) { this.setStatus("不能创建循环连接", "error"); return; }
+    if (!source || !target || target.type !== "generated" || sourceId === targetId) { this.setStatus("连接目标必须是另一个生成节点", "error"); return false; }
+    if (!this.imageForNode(source)) { this.setStatus("请先为来源节点准备图片", "error"); return false; }
+    if (this.graph.edges.some(function (edge) { return edge.source === sourceId && edge.target === targetId; })) { this.setStatus("这两个节点已经连接", "error"); return false; }
+    if (this.hasPath(targetId, sourceId)) { this.setStatus("不能创建循环连接", "error"); return false; }
     if (target.data.isFinal) {
       const assetId = this.assetIdForNode(source);
       if (assetId) {
@@ -1049,6 +1170,7 @@
     this.graph.edges.push({ id: uid("edge"), source: sourceId, target: targetId, order: order });
     if (target.data.isFinal) this.normalizeFinalReferenceOrder();
     this.commitHistory(); this.render();
+    return true;
   };
 
   Editor.prototype.removeEdge = function (edgeId) {
@@ -1062,20 +1184,36 @@
 
   Editor.prototype.onConnectionMove = function (event) {
     if (!this.connecting) return;
+    this.connecting.clientX = event.clientX;
+    this.connecting.clientY = event.clientY;
     this.connecting.current = this.worldPoint(event.clientX, event.clientY);
     this.renderEdges();
   };
 
   Editor.prototype.onConnectionEnd = function (event) {
     if (!this.connecting) return;
+    const connecting = this.connecting;
     const target = document.elementFromPoint(event.clientX, event.clientY);
     const input = target && target.closest && target.closest("[data-port-in]");
     const article = input && input.closest("[data-node-id]");
-    const source = this.connecting.source;
     this.connecting = null;
+    this.stopAutoPan();
     this.root.classList.remove("is-connecting");
-    if (article) this.addEdge(source, article.getAttribute("data-node-id"));
-    else this.renderEdges();
+    const added = article && this.addEdge(connecting.source, article.getAttribute("data-node-id"));
+    if (!added) {
+      this.renderEdges();
+      if (connecting.viewportChanged) this.commitHistory();
+    }
+  };
+
+  Editor.prototype.cancelConnection = function () {
+    if (!this.connecting) return;
+    const connecting = this.connecting;
+    this.connecting = null;
+    this.stopAutoPan();
+    if (this.root) this.root.classList.remove("is-connecting");
+    this.renderEdges();
+    if (connecting.viewportChanged) this.commitHistory();
   };
 
   Editor.prototype.portPoint = function (nodeId, selector) {
@@ -1087,7 +1225,20 @@
   };
 
   Editor.prototype.edgeGeometry = function (source, target) {
-    const bend = Math.max(70, Math.abs(target.x - source.x) * 0.45);
+    const deltaX = target.x - source.x;
+    const deltaY = target.y - source.y;
+    if (deltaX < 0) {
+      const bend = Math.max(96, Math.min(260, 96 + Math.abs(deltaX) * 0.12 + Math.abs(deltaY) * 0.08));
+      const routeY = Math.min(source.y, target.y) - bend;
+      const midpoint = { x: (source.x + target.x) / 2, y: routeY };
+      return {
+        path: "M" + source.x + " " + source.y
+          + " C" + (source.x + bend) + " " + source.y + "," + (source.x + bend) + " " + routeY + "," + midpoint.x + " " + midpoint.y
+          + " C" + (target.x - bend) + " " + routeY + "," + (target.x - bend) + " " + target.y + "," + target.x + " " + target.y,
+        midpoint: midpoint
+      };
+    }
+    const bend = Math.max(72, Math.min(320, deltaX * 0.45));
     const control1 = { x: source.x + bend, y: source.y };
     const control2 = { x: target.x - bend, y: target.y };
     const t = 0.5;
@@ -1179,8 +1330,22 @@
 
   Editor.prototype.applyViewport = function () {
     const viewport = this.graph.viewport;
-    viewport.zoom = Math.max(0.25, Math.min(2, Number(viewport.zoom || 0.8)));
+    viewport.x = finiteNumber(viewport.x, 0);
+    viewport.y = finiteNumber(viewport.y, 0);
+    viewport.zoom = Math.max(0.25, Math.min(2, finiteNumber(viewport.zoom, 0.8)));
     this.world.style.transform = "translate(" + viewport.x + "px," + viewport.y + "px) scale(" + viewport.zoom + ")";
+    const svgTransform = "translate(" + viewport.x + " " + viewport.y + ") scale(" + viewport.zoom + ")";
+    if (this.edgeViewport) this.edgeViewport.setAttribute("transform", svgTransform);
+    if (this.edgeControlViewport) this.edgeControlViewport.setAttribute("transform", svgTransform);
+    if (this.grid) {
+      let worldSpacing = 20;
+      while (worldSpacing * viewport.zoom < 12) worldSpacing *= 2;
+      const spacing = worldSpacing * viewport.zoom;
+      const gridX = (viewport.x % spacing + spacing) % spacing;
+      const gridY = (viewport.y % spacing + spacing) % spacing;
+      this.grid.style.backgroundSize = spacing + "px " + spacing + "px";
+      this.grid.style.backgroundPosition = gridX + "px " + gridY + "px";
+    }
     this.updateEdgeControlScale();
     const zoom = this.root.querySelector("[data-zoom]");
     if (zoom) zoom.textContent = Math.round(viewport.zoom * 100) + "%";
@@ -1347,7 +1512,10 @@
   };
 
   Editor.prototype.close = function (force) {
+    if (this.connecting) this.cancelConnection();
+    if (this.dragging) this.finishNodeDrag(this.dragging.nodeId);
     if (!force && this.dirty && !window.confirm("画布有未保存的修改，确认关闭吗？")) return false;
+    this.stopAutoPan();
     clearTimeout(this.historyTimer);
     this.listeners.splice(0).forEach(function (dispose) { dispose(); });
     if (this.root) this.root.remove();
