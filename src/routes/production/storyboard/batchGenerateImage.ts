@@ -3,6 +3,7 @@ import u from "@/utils";
 import { z } from "zod";
 import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
+import { ensureExactRoleAssociations } from "@/lib/storyboardAssetAssociations";
 
 const router = express.Router();
 
@@ -22,11 +23,16 @@ type AssetRow = {
   id?: number | null;
   projectId?: number | null;
   imageId?: number | null;
+  name?: string | null;
+  type?: string | null;
+  revision?: number | null;
 };
 type ReferenceImage = {
   assetId: number;
   imageId: number;
   filePath: string;
+  assetRevision: number;
+  usesOverride: boolean;
 };
 type ProjectImageSettings = {
   imageModel: ImageModel;
@@ -86,26 +92,28 @@ async function validateProjectImageSettings(projectId: number): Promise<ProjectI
 async function getStoryboardReferences(storyboardIds: number[], projectId: number, scriptId: number) {
   const referencesByStoryboard = new Map<number, ReferenceImage[]>();
   const associationCountByStoryboard = new Map<number, number>();
+  const missingRoleNamesByStoryboard = new Map<number, string[]>();
   storyboardIds.forEach((id) => {
     referencesByStoryboard.set(id, []);
     associationCountByStoryboard.set(id, 0);
+    missingRoleNamesByStoryboard.set(id, []);
   });
-  if (!storyboardIds.length) return { referencesByStoryboard, associationCountByStoryboard };
+  if (!storyboardIds.length) return { referencesByStoryboard, associationCountByStoryboard, missingRoleNamesByStoryboard };
 
   const relations = await u
     .db("o_assets2Storyboard")
     .whereIn("storyboardId", storyboardIds)
     .orderBy("rowid", "asc")
-    .select("storyboardId", "assetId");
+    .select("storyboardId", "assetId", "assetRevision", "referenceEnabled");
   const relationAssetIds = relations.map((item) => Number(item.assetId));
   const invalidRelationAssetIds = uniqueNumbers(relationAssetIds.filter((id) => !Number.isInteger(id) || id <= 0));
   if (invalidRelationAssetIds.length) {
     throw new Error(`分镜关联资产 ID 无效：${invalidRelationAssetIds.join(", ")}`);
   }
   const assetIds = uniqueNumbers(relationAssetIds);
-  if (!assetIds.length) return { referencesByStoryboard, associationCountByStoryboard };
+  if (!assetIds.length) return { referencesByStoryboard, associationCountByStoryboard, missingRoleNamesByStoryboard };
 
-  const assets = (await u.db("o_assets").whereIn("id", assetIds).select("id", "projectId", "imageId")) as AssetRow[];
+  const assets = (await u.db("o_assets").whereIn("id", assetIds).select("id", "projectId", "imageId", "name", "type", "revision")) as AssetRow[];
   const assetMap = new Map(assets.map((item) => [Number(item.id), item]));
   const scriptAssetRows = await u.db("o_scriptAssets").where("scriptId", scriptId).whereIn("assetId", assetIds).select("assetId");
   const scriptAssetIds = new Set(scriptAssetRows.map((item) => Number(item.assetId)));
@@ -125,24 +133,68 @@ async function getStoryboardReferences(storyboardIds: number[], projectId: numbe
   const images = imageIds.length
     ? await u.db("o_image").whereIn("id", imageIds).where("state", "已完成").select("id", "filePath")
     : [];
-  const imageMap = new Map(
-    images
-      .filter((item) => typeof item.filePath === "string" && item.filePath.trim())
-      .map((item) => [Number(item.id), item.filePath!.trim()]),
-  );
+  const validImages = (
+    await Promise.all(
+      images.map(async (item) => {
+        const filePath = typeof item.filePath === "string" ? item.filePath.trim() : "";
+        if (!filePath) return null;
+        try {
+          return (await u.oss.fileExists(filePath)) ? { ...item, filePath } : null;
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((item): item is (typeof images)[number] & { filePath: string } => item !== null);
+  const imageMap = new Map(validImages.map((item) => [Number(item.id), item.filePath]));
+
+  const overrides = await u
+    .db("o_storyboardAssetOverride")
+    .whereIn("storyboardId", storyboardIds)
+    .whereIn("assetId", assetIds)
+    .select("storyboardId", "assetId", "filePath", "baseAssetRevision");
+  const validOverrides = (
+    await Promise.all(
+      overrides.map(async (item) => {
+        if (!item.filePath) return null;
+        try {
+          return (await u.oss.fileExists(item.filePath)) ? item : null;
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((item): item is (typeof overrides)[number] => item !== null);
+  const overrideMap = new Map(validOverrides.map((item) => [`${Number(item.storyboardId)}:${Number(item.assetId)}`, item]));
+  const typeOrder: Record<string, number> = { role: 0, scene: 1, tool: 2 };
+  relations.sort((left, right) => {
+    if (Number(left.storyboardId) !== Number(right.storyboardId)) return Number(left.storyboardId) - Number(right.storyboardId);
+    return (typeOrder[String(assetMap.get(Number(left.assetId))?.type)] ?? 3) - (typeOrder[String(assetMap.get(Number(right.assetId))?.type)] ?? 3);
+  });
 
   for (const relation of relations) {
     const storyboardId = Number(relation.storyboardId);
     const assetId = Number(relation.assetId);
+    if (relation.referenceEnabled === 0) continue;
     associationCountByStoryboard.set(storyboardId, (associationCountByStoryboard.get(storyboardId) ?? 0) + 1);
-    const imageId = Number(assetMap.get(assetId)?.imageId);
-    const filePath = imageMap.get(imageId);
-    if (Number.isInteger(imageId) && imageId > 0 && filePath) {
-      referencesByStoryboard.get(storyboardId)?.push({ assetId, imageId, filePath });
+    const asset = assetMap.get(assetId);
+    const override = overrideMap.get(`${storyboardId}:${assetId}`);
+    const imageId = Number(asset?.imageId);
+    const filePath = typeof override?.filePath === "string" && override.filePath.trim() ? override.filePath.trim() : imageMap.get(imageId);
+    if (filePath) {
+      referencesByStoryboard.get(storyboardId)?.push({
+        assetId,
+        imageId: override ? 0 : imageId,
+        filePath,
+        assetRevision: Number(asset?.revision ?? 1),
+        usesOverride: Boolean(override),
+      });
+    } else if (asset?.type === "role") {
+      missingRoleNamesByStoryboard.get(storyboardId)?.push(String(asset.name || `ID ${assetId}`));
     }
   }
 
-  return { referencesByStoryboard, associationCountByStoryboard };
+  return { referencesByStoryboard, associationCountByStoryboard, missingRoleNamesByStoryboard };
 }
 
 async function readReferenceImages(references: ReferenceImage[]) {
@@ -209,6 +261,16 @@ export default router.post(
       return res.status(400).send(error(`分镜不存在或不属于当前项目和剧本批次：${invalidStoryboardIds.join(", ")}`));
     }
 
+    for (const storyboard of storyboardData) {
+      await ensureExactRoleAssociations(u.db, {
+        storyboardId: Number(storyboard.id),
+        projectId,
+        scriptId,
+        prompt: storyboard.prompt,
+        videoDesc: storyboard.videoDesc,
+      });
+    }
+
     const invalidShouldGenerateIds = storyboardData
       .filter((item) => item.shouldGenerateImage !== 0 && item.shouldGenerateImage !== 1)
       .map((item) => Number(item.id));
@@ -239,7 +301,7 @@ export default router.post(
               return {
                 id,
                 prompt: item.prompt,
-                associateAssetsIds: (referencesByStoryboard.get(id) ?? []).map((reference) => reference.imageId),
+                associateAssetsIds: (referencesByStoryboard.get(id) ?? []).map((reference) => reference.assetId),
                 src: null,
                 state: item.state,
                 reason: item.reason,
@@ -258,14 +320,12 @@ export default router.post(
 
     let settings: ProjectImageSettings;
     let referencesByStoryboard: Map<number, ReferenceImage[]>;
-    let associationCountByStoryboard: Map<number, number>;
+    let missingRoleNamesByStoryboard: Map<number, string[]>;
     try {
       settings = await validateProjectImageSettings(projectId);
-      ({ referencesByStoryboard, associationCountByStoryboard } = await getStoryboardReferences(acceptedIds, projectId, scriptId));
+      ({ referencesByStoryboard, missingRoleNamesByStoryboard } = await getStoryboardReferences(acceptedIds, projectId, scriptId));
 
-      const unavailableReferenceIds = acceptedIds.filter(
-        (id) => (associationCountByStoryboard.get(id) ?? 0) > 0 && !(referencesByStoryboard.get(id)?.length ?? 0),
-      );
+      const unavailableReferenceIds = acceptedIds.filter((id) => (missingRoleNamesByStoryboard.get(id)?.length ?? 0) > 0);
       const readyIds = acceptedIds.filter((id) => !unavailableReferenceIds.includes(id));
       const unavailableReason = "分镜有关联资产，但关联资产均无可用的当前已完成图片";
 
@@ -279,6 +339,12 @@ export default router.post(
             state: "生成失败",
             reason: unavailableReason,
           });
+          for (const storyboardId of unavailableReferenceIds) {
+            const names = missingRoleNamesByStoryboard.get(storyboardId) ?? [];
+            await trx("o_storyboard").where({ id: storyboardId, projectId, scriptId }).update({
+              reason: `缺少角色参考图：${names.join("、")}。请上传正式资产图、设置本分镜版本，或关闭该角色的本次参考。`,
+            });
+          }
         }
         if (readyIds.length) {
           await trx("o_storyboard").where({ projectId, scriptId }).whereIn("id", readyIds).update({
@@ -314,7 +380,7 @@ export default router.post(
           return {
             id,
             prompt: item.prompt,
-            associateAssetsIds: (referencesByStoryboard.get(id) ?? []).map((reference) => reference.imageId),
+            associateAssetsIds: (referencesByStoryboard.get(id) ?? []).map((reference) => reference.assetId),
             src: null,
             state: item.state,
             reason: item.reason,
@@ -329,7 +395,7 @@ export default router.post(
 
     const generateTask = async (item: StoryboardRow) => {
       const storyboardId = Number(item.id);
-      if ((associationCountByStoryboard.get(storyboardId) ?? 0) > 0 && !(referencesByStoryboard.get(storyboardId)?.length ?? 0)) return;
+      if ((missingRoleNamesByStoryboard.get(storyboardId)?.length ?? 0) > 0) return;
 
       try {
         const prompt = typeof item.prompt === "string" ? item.prompt.trim() : "";
@@ -359,6 +425,13 @@ export default router.post(
           state: "已完成",
           reason: null,
         });
+        const globalReferences = (referencesByStoryboard.get(storyboardId) ?? []).filter((reference) => !reference.usesOverride);
+        for (const reference of globalReferences) {
+          await u
+            .db("o_assets2Storyboard")
+            .where({ storyboardId, assetId: reference.assetId })
+            .update({ assetRevision: reference.assetRevision });
+        }
       } catch (e) {
         const reason = u.error(e).message;
         try {

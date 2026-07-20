@@ -161,6 +161,8 @@ export default router.post(
           filePath: savePath,
           errorReason: null,
         });
+        const currentAsset = await u.db("o_assets").where({ id: item.id, projectId }).select("revision").first();
+        await u.db("o_assets").where({ id: item.id, projectId }).update({ revision: Number(currentAsset?.revision ?? 1) + 1 });
       } catch (e) {
         const errorReason = u.error(e).message;
         const statusWrites: Promise<unknown>[] = [

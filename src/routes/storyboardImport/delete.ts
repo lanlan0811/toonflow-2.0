@@ -29,6 +29,8 @@ export default router.post(
 
         if (flowIds.length) await trx("o_imageFlow").whereIn("id", flowIds).delete();
         await trx("o_assets2Storyboard").whereIn("storyboardId", storyboardIds).delete();
+        await trx("o_storyboardAssetExclusion").whereIn("storyboardId", storyboardIds).delete();
+        await trx("o_storyboardAssetOverride").whereIn("storyboardId", storyboardIds).delete();
         await trx("o_storyboard").whereIn("id", storyboardIds).delete();
         await recalculateStoryboardTracks(trx, projectId, scriptIds);
 

@@ -19,6 +19,8 @@ export default router.post(
     if (trackData.length == 1) await u.db("o_videoTrack").where("id", storyboardData.trackId).delete();
     await u.db("o_storyboard").where("id", id).delete();
     await u.db("o_assets2Storyboard").where("storyboardId", id).delete();
+    await u.db("o_storyboardAssetExclusion").where("storyboardId", id).delete();
+    await u.db("o_storyboardAssetOverride").where("storyboardId", id).delete();
     res.status(200).send(success({ message: "视频删除成功" }));
   },
 );

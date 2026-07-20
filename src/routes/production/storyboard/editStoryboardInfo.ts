@@ -3,7 +3,7 @@ import u from "@/utils";
 import { z } from "zod";
 import { success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
-import { id } from "zod/locales";
+import { ensureExactRoleAssociations } from "@/lib/storyboardAssetAssociations";
 const router = express.Router();
 
 export default router.post(
@@ -19,6 +19,16 @@ export default router.post(
       prompt,
       videoDesc,
     });
+    const storyboard = await u.db("o_storyboard").where({ id }).select("projectId", "scriptId").first();
+    if (storyboard?.projectId && storyboard?.scriptId) {
+      await ensureExactRoleAssociations(u.db, {
+        storyboardId: id,
+        projectId: Number(storyboard.projectId),
+        scriptId: Number(storyboard.scriptId),
+        prompt,
+        videoDesc,
+      });
+    }
     res.status(200).send(success({ message: "更新提示词成功" }));
   },
 );

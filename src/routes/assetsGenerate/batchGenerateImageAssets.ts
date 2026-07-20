@@ -144,7 +144,8 @@ export default router.post("/", validateFields(requestSchema), async (req, res) 
             resolution,
           });
 
-        await u.db("o_assets").where("id", item.id).update({ imageId });
+        const currentAsset = await u.db("o_assets").where("id", item.id).select("revision").first();
+        await u.db("o_assets").where("id", item.id).update({ imageId, revision: Number(currentAsset?.revision ?? 1) + 1 });
       } catch (e: any) {
         await u
           .db("o_image")

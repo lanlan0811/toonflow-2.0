@@ -94,6 +94,12 @@ export default async (knex: Knex): Promise<void> => {
   // 添加新字段
   await addColumn("o_agentDeploy", "maxOutputTokens", "integer");
   await addColumn("o_assets", "audioBindState", "integer");
+  await addColumn("o_assets", "revision", "integer");
+  await addColumn("o_assets2Storyboard", "assetRevision", "integer");
+  await addColumn("o_assets2Storyboard", "referenceEnabled", "integer");
+  await knex("o_assets").whereNull("revision").update({ revision: 1 });
+  await knex("o_assets2Storyboard").whereNull("assetRevision").update({ assetRevision: 1 });
+  await knex("o_assets2Storyboard").whereNull("referenceEnabled").update({ referenceEnabled: 1 });
   await addColumn("o_modelPrompt", "fileName", "string");
   await addColumn("o_modelPrompt", "path", "string");
   const vendorDataSelect = await u.db("o_vendorConfig").whereIn("id", ["deepseek", "atlascloud"]).select("*");

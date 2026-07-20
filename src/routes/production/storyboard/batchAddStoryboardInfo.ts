@@ -3,6 +3,7 @@ import u from "@/utils";
 import { z } from "zod";
 import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
+import { ensureExactRoleAssociations } from "@/lib/storyboardAssetAssociations";
 const router = express.Router();
 export default router.post(
   "/",
@@ -45,6 +46,7 @@ export default router.post(
           })),
         );
       }
+      await ensureExactRoleAssociations(u.db, { storyboardId: id, projectId, scriptId, prompt: item.prompt, videoDesc: item.videoDesc });
       item.id = id;
     }
     const lastStoryboard = await u.db("o_storyboard").where("scriptId", scriptId);

@@ -699,12 +699,23 @@
     }).join('')+'</div>';
   }
 
+  function storyboardDiagnosticMarkup(row){
+    const diagnostic = row.associationDiagnostics || {};
+    const parts = [];
+    if ((diagnostic.missingAssociationAssetIds || []).length) parts.push('<span class="tf-sd-chip failed">缺失关联 '+diagnostic.missingAssociationAssetIds.length+'</span>');
+    if ((diagnostic.missingImageRoles || []).length) parts.push('<span class="tf-sd-chip failed">缺图角色 '+escapeHtml(diagnostic.missingImageRoles.map(function(item){ return item.name; }).join('、'))+'</span>');
+    if ((diagnostic.staleAssetIds || []).length) parts.push('<span class="tf-sd-chip generating">关联资产已更新，建议重生</span>');
+    if ((diagnostic.disabledReferenceAssetIds || []).length) parts.push('<span class="tf-sd-chip idle">关闭参考 '+diagnostic.disabledReferenceAssetIds.length+'</span>');
+    if ((diagnostic.excludedAssetIds || []).length) parts.push('<span class="tf-sd-chip idle">永久排除 '+diagnostic.excludedAssetIds.length+'</span>');
+    return parts.length ? '<div class="tf-sm-story-diagnostics">'+parts.join('')+'</div>' : '';
+  }
+
   function renderStoryboardList(rows){
     const box = $('tf-sm-list'); if(!box) return;
     if (!getScriptId() && currentScripts.length > 1) { box.innerHTML = '<div class="tf-sm-batch-block"><strong>请选择分镜表批次</strong><div>'+escapeHtml(getBatchBlockReason())+'</div></div>'; return; }
     if(!rows.length){ box.innerHTML = '<div class="tf-sd-empty">暂无分镜表数据</div>'; return; }
     const allChecked = rows.length && rows.every(function(row){ return selectedStoryboardIds.includes(row.id); });
-    const toolbar = '<div class="tf-sm-table-actions"><button class="tf-sd-btn tf-sd-mini warn" data-action="bulk-delete" '+(!selectedStoryboardIds.length?'disabled':'')+'>批量删除</button><span class="tf-sd-help">已选择 '+selectedStoryboardIds.length+' 条</span></div>';
+    const toolbar = '<div class="tf-sm-table-actions"><button class="tf-sd-btn tf-sd-mini primary" data-action="association-audit">关联体检</button><button class="tf-sd-btn tf-sd-mini warn" data-action="bulk-delete" '+(!selectedStoryboardIds.length?'disabled':'')+'>批量删除</button><span class="tf-sd-help">已选择 '+selectedStoryboardIds.length+' 条</span></div>';
     const head = '<table class="tf-sd-table tf-sm-main-table"><thead><tr><th><input type="checkbox" data-action="toggle-all" '+(allChecked?'checked':'')+'></th><th>缩略图</th><th>镜号 / 画面内容</th><th>时长</th><th>场景/轨道</th><th>关联资产</th><th>分镜图状态 / 原因</th><th>操作</th></tr></thead><tbody>';
     const body = rows.map(function(r,i){
       const shot = (r.videoDesc || '').match(/镜号[:：]\s*([^\n]+)/);
@@ -720,7 +731,7 @@
       const generateButton = generateImage && !success && !failed ? '<button class="tf-sd-btn tf-sd-mini primary" data-action="generate-image" data-id="'+r.id+'" '+(generating?'disabled':'')+'>'+(generating?'生成中':'生成分镜图')+'</button>' : '';
       const retryButton = generateImage && failed ? '<button class="tf-sd-btn tf-sd-mini primary" data-action="retry-image" data-id="'+r.id+'">失败重试</button>' : '';
       const forceButton = '<button class="tf-sd-btn tf-sd-mini warn" data-action="force-image" data-id="'+r.id+'" '+(generating?'disabled':'')+'>'+(generateImage?'强制重生':'强制生成')+'</button>';
-      return '<tr><td><input type="checkbox" data-action="toggle-one" data-id="'+r.id+'" '+checked+'></td><td>'+thumbnail+'</td><td><div class="tf-sm-shot-no">'+escapeHtml(r.index || (shot && shot[1]) || i+1)+'</div><div class="tf-sm-story-desc">'+escapeHtml(r.videoDesc || r.prompt || '')+'</div></td><td>'+escapeHtml(r.duration || '')+'</td><td>'+escapeHtml(r.track || '')+'</td><td>'+storyboardAssetMarkup(r.assets||[])+'</td><td><span class="tf-sd-chip '+stateClass+'">'+escapeHtml(r.state || '未生成')+'</span>'+reason+'</td><td><div class="tf-sm-row-actions"><button class="tf-sd-btn tf-sd-mini" data-action="edit" data-id="'+r.id+'">编辑关联</button><button class="tf-sd-btn tf-sd-mini primary" data-action="edit-generate" data-id="'+r.id+'">编辑生成</button>'+generateButton+retryButton+forceButton+'<button class="tf-sd-btn tf-sd-mini warn" data-action="delete" data-id="'+r.id+'">删除</button></div></td></tr>';
+      return '<tr><td><input type="checkbox" data-action="toggle-one" data-id="'+r.id+'" '+checked+'></td><td>'+thumbnail+'</td><td><div class="tf-sm-shot-no">'+escapeHtml(r.index || (shot && shot[1]) || i+1)+'</div><div class="tf-sm-story-desc">'+escapeHtml(r.videoDesc || r.prompt || '')+'</div></td><td>'+escapeHtml(r.duration || '')+'</td><td>'+escapeHtml(r.track || '')+'</td><td>'+storyboardAssetMarkup(r.assets||[])+'</td><td><span class="tf-sd-chip '+stateClass+'">'+escapeHtml(r.state || '未生成')+'</span>'+reason+storyboardDiagnosticMarkup(r)+'</td><td><div class="tf-sm-row-actions"><button class="tf-sd-btn tf-sd-mini" data-action="edit" data-id="'+r.id+'">编辑关联</button><button class="tf-sd-btn tf-sd-mini primary" data-action="edit-generate" data-id="'+r.id+'">编辑生成</button>'+generateButton+retryButton+forceButton+'<button class="tf-sd-btn tf-sd-mini warn" data-action="delete" data-id="'+r.id+'">删除</button></div></td></tr>';
     }).join('');
     box.innerHTML = toolbar + head + body + '</tbody></table>';
     bindStoryboardListActions(box);
@@ -742,6 +753,7 @@
         if (action === 'force-image') runStep('generateStoryboardImages','page',{itemIds:[id],retryFailedOnly:false,compulsory:true});
         if (action === 'delete') deleteStoryboards([id]);
         if (action === 'bulk-delete') deleteStoryboards(selectedStoryboardIds.slice());
+        if (action === 'association-audit') openAssociationAudit();
       });
       node.addEventListener('change', function(){
         const action = node.getAttribute('data-action');
@@ -750,6 +762,36 @@
         if (action === 'toggle-all') toggleAllStoryboardSelection(node.checked);
       });
     });
+  }
+
+  async function openAssociationAudit(){
+    try{
+      const selectedScriptId = getScriptId();
+      const requestedScope = String(window.prompt('体检范围：all（全部项目）/ project（当前项目）/ script（当前分镜表）', selectedScriptId ? 'script' : 'project') || '').trim().toLowerCase();
+      if (!requestedScope) return;
+      if (!['all','project','script'].includes(requestedScope)) throw new Error('体检范围只能是 all、project 或 script');
+      const body = {scope:requestedScope};
+      if (requestedScope !== 'all') body.projectId = getProjectId();
+      if (requestedScope === 'script') {
+        if (!selectedScriptId) throw new Error('请先选择分镜表批次');
+        body.scriptId = selectedScriptId;
+      }
+      const preview = apiData(await post('/api/storyboardImport/associationAudit/preview', body)) || {};
+      const summary = preview.summary || {};
+      const sample = (preview.items || []).filter(function(item){ return (item.additions || []).length; }).slice(0,8).map(function(item){
+        return '镜号 '+(item.index || item.storyboardId)+'：'+item.additions.map(function(asset){ return asset.name; }).join('、');
+      }).join('\n');
+      if (!Number(summary.additions || 0)) {
+        window.alert('体检完成：扫描 '+Number(summary.storyboards || 0)+' 条分镜，没有需要补齐的角色关联。');
+        return;
+      }
+      const message = '体检完成：扫描 '+Number(summary.storyboards || 0)+' 条分镜，'+Number(summary.affected || 0)+' 条受影响，预计补齐 '+Number(summary.additions || 0)+' 个角色关系。\n\n'+sample+'\n\n只会补充，不会删除已有关系。确认应用？';
+      if (!window.confirm(message)) return;
+      const additions = (preview.items || []).flatMap(function(item){ return (item.additions || []).map(function(asset){ return {storyboardId:item.storyboardId,assetId:asset.id}; }); });
+      const applied = apiData(await post('/api/storyboardImport/associationAudit/apply', {additions:additions})) || {};
+      window.alert('关联修复完成：新增 '+Number(applied.added || 0)+' 条，跳过 '+((applied.skipped || []).length)+' 条。');
+      await refreshStoryboardList({preserveBatch:true});
+    }catch(e){ window.$message ? window.$message.error(e.message) : alert(e.message); }
   }
 
   function toggleStoryboardSelection(id, checked){
@@ -784,7 +826,8 @@
       return;
     }
     const assets = (row.assets || []).map(function(relationAsset){
-      return currentAssets.find(function(asset){ return Number(asset.id) === Number(relationAsset.id); }) || relationAsset;
+      const current = currentAssets.find(function(asset){ return Number(asset.id) === Number(relationAsset.id); });
+      return Object.assign({}, current || {}, relationAsset);
     });
     canvasOpen = true;
     let saved = false;
@@ -849,6 +892,9 @@
       if (!editingStoryboard) throw new Error('没有正在编辑的分镜');
       const projectId = getProjectId();
       const assetIds = Array.from(document.querySelectorAll('#tf-sm-edit-assets input:checked')).map(function(node){ return Number(node.value); }).filter(Boolean);
+      const automaticIds = ((editingStoryboard.associationDiagnostics || {}).automaticHitAssetIds || []).map(Number);
+      const previousIds = (editingStoryboard.assets || []).map(function(asset){ return Number(asset.id); });
+      const excludedAutoAssetIds = previousIds.filter(function(assetId){ return automaticIds.includes(assetId) && !assetIds.includes(assetId); });
       const body = {
         id: editingStoryboard.id,
         projectId,
@@ -857,7 +903,8 @@
         duration: Number($('tf-sm-edit-duration').value || 3),
         track: $('tf-sm-edit-track').value.trim() || '默认分组',
         shouldGenerateImage: $('tf-sm-edit-generate-image').checked ? 1 : 0,
-        associateAssetsIds: assetIds
+        associateAssetsIds: assetIds,
+        excludedAutoAssetIds: excludedAutoAssetIds
       };
       await post('/api/storyboardImport/update', body);
       closeEditStoryboard();

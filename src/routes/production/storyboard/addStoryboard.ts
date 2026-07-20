@@ -3,6 +3,7 @@ import u from "@/utils";
 import { z } from "zod";
 import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
+import { ensureExactRoleAssociations } from "@/lib/storyboardAssetAssociations";
 const router = express.Router();
 interface Storyboard {
   id: number;
@@ -43,6 +44,7 @@ export default router.post(
       scriptId: scriptId,
       projectId: projectId,
     });
+    await ensureExactRoleAssociations(u.db, { storyboardId: id, projectId, scriptId, prompt, videoDesc });
     return res.status(200).send(success({ id }));
   },
 );

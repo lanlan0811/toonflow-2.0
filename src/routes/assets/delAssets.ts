@@ -12,6 +12,8 @@ export default router.post(
   }),
   async (req, res) => {
     const { id } = req.body;
+    const derivedAssets = await u.db("o_assets").where("assetsId", id).select("id");
+    const assetIds = [...new Set([id, ...derivedAssets.map((item) => Number(item.id))])];
     const assetsData = await u.db("o_image").where("assetsId", id);
     await Promise.all(
       assetsData.map((i) =>
@@ -27,8 +29,11 @@ export default router.post(
       await u.db("o_assets").whereIn("imageId", imageIds).update({ imageId: null });
     }
     await u.db("o_image").where({ assetsId: id }).delete();
-    await u.db("o_assets").where({ id }).delete();
-    await u.db("o_assets").where("assetsId", id).delete();
+    await u.db("o_storyboardAssetOverride").whereIn("assetId", assetIds).delete();
+    await u.db("o_storyboardAssetExclusion").whereIn("assetId", assetIds).delete();
+    await u.db("o_assets2Storyboard").whereIn("assetId", assetIds).delete();
+    await u.db("o_scriptAssets").whereIn("assetId", assetIds).delete();
+    await u.db("o_assets").whereIn("id", assetIds).delete();
     res.status(200).send(success({ message: "删除资产成功" }));
   },
 );

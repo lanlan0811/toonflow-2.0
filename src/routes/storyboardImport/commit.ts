@@ -14,6 +14,7 @@ import {
 } from "@/lib/storyboardImportAssets";
 import { validateFields } from "@/middleware/middleware";
 import { normalizeProjectType, ProjectTypes } from "@/constants/project";
+import { resolveExactRoleAssociations } from "@/lib/storyboardAssetAssociations";
 
 const router = express.Router();
 
@@ -181,6 +182,25 @@ async function insertMissingScriptAssets(db: any, scriptId: number, assetIds: nu
   }
 }
 
+async function buildRelationRows(
+  db: any,
+  storyboardId: number,
+  assetIds: number[],
+  existingRelations: Map<number, { assetRevision?: number; referenceEnabled?: number }> = new Map(),
+) {
+  const assets = assetIds.length ? await db("o_assets").whereIn("id", assetIds).select("id", "revision") : [];
+  const revisionByAssetId = new Map(assets.map((asset: { id: number; revision?: number }) => [Number(asset.id), Number(asset.revision ?? 1)]));
+  return assetIds.map((assetId) => {
+    const existing = existingRelations.get(assetId);
+    return {
+      assetId,
+      storyboardId,
+      assetRevision: Number(existing?.assetRevision ?? revisionByAssetId.get(assetId) ?? 1),
+      referenceEnabled: existing?.referenceEnabled === 0 ? 0 : 1,
+    };
+  });
+}
+
 export default router.post(
   "/",
   validateFields({
@@ -254,13 +274,21 @@ export default router.post(
 
         const existingStoryboards = await trx("o_storyboard").where({ scriptId, projectId }).orderBy("id");
         const existingIds = existingStoryboards.map((item: { id?: number }) => Number(item.id)).filter((id: number) => Number.isInteger(id));
-        const existingRelations = existingIds.length ? await trx("o_assets2Storyboard").whereIn("storyboardId", existingIds).select("storyboardId", "assetId") : [];
+        const existingRelations = existingIds.length
+          ? await trx("o_assets2Storyboard").whereIn("storyboardId", existingIds).select("storyboardId", "assetId", "assetRevision", "referenceEnabled")
+          : [];
         const existingAssetIdsByStoryboard = (existingRelations as { storyboardId: number; assetId: number }[]).reduce((result, relation) => {
           const ids = result.get(Number(relation.storyboardId)) ?? [];
           ids.push(Number(relation.assetId));
           result.set(Number(relation.storyboardId), ids);
           return result;
         }, new Map<number, number[]>());
+        const existingRelationMetaByStoryboard = (existingRelations as { storyboardId: number; assetId: number; assetRevision?: number; referenceEnabled?: number }[]).reduce((result, relation) => {
+          const relations = result.get(Number(relation.storyboardId)) ?? new Map<number, { assetRevision?: number; referenceEnabled?: number }>();
+          relations.set(Number(relation.assetId), { assetRevision: relation.assetRevision, referenceEnabled: relation.referenceEnabled });
+          result.set(Number(relation.storyboardId), relations);
+          return result;
+        }, new Map<number, Map<number, { assetRevision?: number; referenceEnabled?: number }>>());
         const existingByShotNo = new Map<string, any>();
         const existingByIndex = new Map<string, any>();
         const existingShotNoCounts = new Map<string, number>();
@@ -292,13 +320,29 @@ export default router.post(
           }
           if (duplicateKey) submittedKeys.add(duplicateKey);
 
-          const associateAssetsIds = await ensureAssets(trx, projectId, item, meta, options);
+          let associateAssetsIds = await ensureAssets(trx, projectId, item, meta, options);
           if (options?.createScriptAssets !== false) await insertMissingScriptAssets(trx, scriptId, associateAssetsIds);
           const videoDesc = item.shotNo && !item.videoDesc.includes("镜号：") ? `镜号：${item.shotNo}\n${item.videoDesc}` : item.videoDesc;
           const importedFilePath = normalizeStoryboardFilePath(item.src);
           const shotMatch = shotKey && existingShotNoCounts.get(shotKey) === 1 ? existingByShotNo.get(shotKey) : undefined;
           const indexMatch = indexKey && existingIndexCounts.get(indexKey) === 1 ? existingByIndex.get(indexKey) : undefined;
           const existing = shotKey ? shotMatch : indexMatch;
+          const exactRoleMatches = await resolveExactRoleAssociations(trx, {
+            projectId,
+            scriptId,
+            storyboardId: existing ? Number(existing.id) : undefined,
+            prompt: item.prompt,
+            videoDesc,
+            projectFallback: !req.body.scriptId,
+          });
+          const exactRoleAssetIds = exactRoleMatches.matched.map((match) => Number(match.id));
+          associateAssetsIds = uniqueNumbers([
+            ...associateAssetsIds,
+            ...((existing?.associateAssetsIds ?? []) as number[]),
+            ...exactRoleAssetIds,
+          ]);
+          if (exactRoleAssetIds.length) await insertMissingScriptAssets(trx, scriptId, exactRoleAssetIds);
+          if (options?.createScriptAssets !== false) await insertMissingScriptAssets(trx, scriptId, associateAssetsIds);
           const filePath = existing && !importedFilePath ? normalizeComparableText(existing.filePath) : importedFilePath;
           const preserveExistingImage = Boolean(existing?.filePath && !importedFilePath);
           const state = filePath ? "已完成" : "未生成";
@@ -334,7 +378,7 @@ export default router.post(
               });
               await trx("o_assets2Storyboard").where("storyboardId", id).delete();
               if (associateAssetsIds.length) {
-                await trx("o_assets2Storyboard").insert(associateAssetsIds.map((assetId) => ({ assetId, storyboardId: id })));
+                await trx("o_assets2Storyboard").insert(await buildRelationRows(trx, id, associateAssetsIds, existingRelationMetaByStoryboard.get(id)));
               }
               updated += 1;
             }
@@ -353,7 +397,7 @@ export default router.post(
               createTime: Date.now(),
             });
             if (associateAssetsIds.length) {
-              await trx("o_assets2Storyboard").insert(associateAssetsIds.map((assetId) => ({ assetId, storyboardId: id })));
+              await trx("o_assets2Storyboard").insert(await buildRelationRows(trx, id, associateAssetsIds));
             }
             inserted += 1;
           }

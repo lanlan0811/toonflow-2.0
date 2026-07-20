@@ -20,6 +20,8 @@ export default router.post(
   }),
   async (req, res) => {
     const { id, base64, type, prompt, projectId, imageId } = req.body;
+    const currentAsset = await u.db("o_assets").where("id", id).select("revision").first();
+    const nextRevision = Number(currentAsset?.revision ?? 1) + 1;
     if (base64) {
       //自定义上传选择的图片
       const matches = base64.match(/^data:image\/\w+;base64,(.+)$/);
@@ -42,6 +44,7 @@ export default router.post(
         .update({
           prompt: prompt ?? "",
           imageId: idData,
+          revision: nextRevision,
         });
     } else {
       await u
@@ -50,6 +53,7 @@ export default router.post(
         .update({
           prompt: prompt ?? "",
           imageId: imageId,
+          revision: nextRevision,
         });
     }
     res.status(200).send(success({ message: "保存资产图片成功" }));

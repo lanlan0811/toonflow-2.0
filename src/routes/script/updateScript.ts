@@ -22,6 +22,17 @@ export default router.post(
     });
     if (assets.length) {
       const assetsData = await u.db("o_assets").whereIn("id", assets).select();
+      const existingAssetIds = (await u.db("o_scriptAssets").where({ scriptId: id }).select("assetId")).map((item) => Number(item.assetId));
+      const nextAssetIds = new Set(assetsData.map((item) => Number(item.id)));
+      const removedAssetIds = existingAssetIds.filter((assetId) => !nextAssetIds.has(assetId));
+      if (removedAssetIds.length) {
+        const storyboardIds = (await u.db("o_storyboard").where("scriptId", id).select("id")).map((item) => Number(item.id));
+        if (storyboardIds.length) {
+          await u.db("o_storyboardAssetOverride").whereIn("storyboardId", storyboardIds).whereIn("assetId", removedAssetIds).delete();
+          await u.db("o_storyboardAssetExclusion").whereIn("storyboardId", storyboardIds).whereIn("assetId", removedAssetIds).delete();
+          await u.db("o_assets2Storyboard").whereIn("storyboardId", storyboardIds).whereIn("assetId", removedAssetIds).delete();
+        }
+      }
       await u.db("o_scriptAssets").where({ scriptId: id }).delete();
       if (assetsData.length) {
         const insertData = assetsData.map((item) => {

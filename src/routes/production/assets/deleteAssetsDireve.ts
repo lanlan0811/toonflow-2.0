@@ -20,6 +20,9 @@ export default router.post(
     if (assetsFirstData?.flowId) await u.db("o_imageFlow").where("id", assetsFirstData?.flowId).delete();
     await u.db("o_assets").where("id", id).delete();
     await u.db("o_assets2Storyboard").where("assetId", id).delete();
+    await u.db("o_scriptAssets").where("assetId", id).delete();
+    await u.db("o_storyboardAssetExclusion").where("assetId", id).delete();
+    await u.db("o_storyboardAssetOverride").where("assetId", id).delete();
     res.status(200).send(success({ message: "视频删除成功" }));
   },
 );

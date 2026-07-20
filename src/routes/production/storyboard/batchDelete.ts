@@ -26,6 +26,8 @@ export default router.post(
 
     await u.db("o_storyboard").whereIn("id", storyBoardIds).delete();
     await u.db("o_assets2Storyboard").whereIn("storyboardId", storyBoardIds).delete();
+    await u.db("o_storyboardAssetExclusion").whereIn("storyboardId", storyBoardIds).delete();
+    await u.db("o_storyboardAssetOverride").whereIn("storyboardId", storyBoardIds).delete();
     res.status(200).send(success({ message: "视频删除成功" }));
   },
 );

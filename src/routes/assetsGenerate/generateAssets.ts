@@ -130,7 +130,8 @@ export default router.post("/", validateFields(requestSchema), async (req, res) 
       });
 
     const path = await u.oss.getSmallImageUrl(imagePath);
-    await u.db("o_assets").where("id", id).update({ imageId });
+    const currentAsset = await u.db("o_assets").where("id", id).select("revision").first();
+    await u.db("o_assets").where("id", id).update({ imageId, revision: Number(currentAsset?.revision ?? 1) + 1 });
 
     return res.status(200).send(success({ path, assetsId: id }));
   } catch (e) {

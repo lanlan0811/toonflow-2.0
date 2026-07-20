@@ -50,12 +50,16 @@ export default router.post(
     const storyboardIds = storyboardData.map((item: any) => item.id);
     if (storyboardIds.length > 0) {
       await u.db("o_assets2Storyboard").whereIn("storyboardId", storyboardIds).delete();
+      await u.db("o_storyboardAssetExclusion").whereIn("storyboardId", storyboardIds).delete();
+      await u.db("o_storyboardAssetOverride").whereIn("storyboardId", storyboardIds).delete();
     }
     await u.db("o_storyboard").where("projectId", id).delete();
     //删除需要删除资产的归属图片
     const assetsData = await u.db("o_assets").where("projectId", id).select("id");
     const assetsIds = assetsData.map((item: any) => item.id);
     if (assetsIds && assetsIds.length > 0) {
+      await u.db("o_storyboardAssetExclusion").whereIn("assetId", assetsIds).delete();
+      await u.db("o_storyboardAssetOverride").whereIn("assetId", assetsIds).delete();
       // 先将 o_assets.imageId 置空，解除对 o_image 的外键引用
       await u.db("o_assets").whereIn("id", assetsIds).update({ imageId: null });
       await u.db("o_image").whereIn("assetsId", assetsIds).delete();

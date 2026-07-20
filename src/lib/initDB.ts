@@ -455,6 +455,7 @@ export default async (knex: Knex, forceInit: boolean = false): Promise<void> => 
         table.integer("assetsId");
         table.integer("projectId");
         table.integer("flowId"); //工作流id
+        table.integer("revision").notNullable().defaultTo(1); // 当前正式资产版本
         table.integer("startTime");
         table.string("promptState");
         table.integer("audioBindState");
@@ -630,6 +631,33 @@ export default async (knex: Knex, forceInit: boolean = false): Promise<void> => 
       builder: (table) => {
         table.integer("storyboardId").notNullable();
         table.integer("assetId").notNullable();
+        table.integer("assetRevision").notNullable().defaultTo(1);
+        table.integer("referenceEnabled").notNullable().defaultTo(1);
+        table.primary(["storyboardId", "assetId"]);
+        table.unique(["storyboardId", "assetId"]);
+      },
+    },
+    {
+      name: "o_storyboardAssetExclusion",
+      builder: (table) => {
+        table.integer("storyboardId").notNullable();
+        table.integer("assetId").notNullable();
+        table.integer("createTime").notNullable();
+        table.primary(["storyboardId", "assetId"]);
+        table.unique(["storyboardId", "assetId"]);
+      },
+    },
+    {
+      name: "o_storyboardAssetOverride",
+      builder: (table) => {
+        table.integer("storyboardId").notNullable();
+        table.integer("assetId").notNullable();
+        table.text("filePath").notNullable();
+        table.text("describe");
+        table.text("prompt");
+        table.text("sourceNodeId");
+        table.integer("baseAssetRevision").notNullable().defaultTo(1);
+        table.integer("updateTime").notNullable();
         table.primary(["storyboardId", "assetId"]);
         table.unique(["storyboardId", "assetId"]);
       },
