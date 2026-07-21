@@ -45,6 +45,8 @@ async function checkPermissions() {
 
 export default async function startServe(randomPort: Boolean = false) {
   await checkPermissions();
+  // 路由开放前完成数据库初始化，避免首次请求与懒建表迁移并发。
+  await u.db.ready;
 
   await u.writeVersion();
   const io = new Server(server, { cors: { origin: "*" } });

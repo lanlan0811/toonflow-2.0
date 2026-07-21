@@ -82,6 +82,19 @@ const productFactoryBuildConfig: esbuild.BuildOptions = {
   sourcemap: false,
 };
 
+// 无限画布作为独立浏览器子应用挂载，继续复用现有 Vue 壳层与后端服务。
+const infiniteCanvasBuildConfig: esbuild.BuildOptions = {
+  entryPoints: ["src/web/infiniteCanvas/index.ts"],
+  bundle: true,
+  minify: true,
+  format: "iife",
+  outfile: "data/web/infinite-canvas-studio.js",
+  platform: "browser",
+  target: "es2020",
+  tsconfig: "./tsconfig.json",
+  sourcemap: false,
+};
+
 (async () => {
   try {
     console.log("🔨 开始构建...\n");
@@ -89,11 +102,12 @@ const productFactoryBuildConfig: esbuild.BuildOptions = {
     await generateRouter();
 
     // 并行构建
-    await Promise.all([esbuild.build(appBuildConfig), esbuild.build(mainBuildConfig), esbuild.build(productFactoryBuildConfig)]);
+    await Promise.all([esbuild.build(appBuildConfig), esbuild.build(mainBuildConfig), esbuild.build(productFactoryBuildConfig), esbuild.build(infiniteCanvasBuildConfig)]);
 
     console.log("✅ 后端服务构建完成: build/app.js");
     console.log("✅ Electron主进程构建完成: build/main.js");
     console.log("✅ 商品视觉工厂前端构建完成: data/web/product-factory-studio.js");
+    console.log("✅ 无限画布前端构建完成: data/web/infinite-canvas-studio.js");
     console.log("\n🎉 所有构建任务完成!\n");
   } catch (err) {
     console.error("❌ 构建失败:", err);

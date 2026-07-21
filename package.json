@@ -26,6 +26,7 @@
     "lint": "tsc --noEmit",
     "test:storyboard-import": "node --import tsx --test test/storyboardImport/assets.test.ts test/storyboardImport/associations.test.ts test/storyboardImport/canvas.test.ts test/storyboardImport/list.test.ts test/storyboardImport/parse.test.ts",
     "test:product-factory": "node --import ./test/productFactory/setup.cjs --import tsx --test test/productFactory/*.test.ts",
+    "test:infinite-canvas": "node --import ./test/productFactory/setup.cjs --import tsx --test test/infiniteCanvas/*.test.ts",
     "build": "cross-env NODE_ENV=prod tsx scripts/build.ts",
     "pack": "electron-builder --dir",
     "dist": "yarn build && electron-builder",

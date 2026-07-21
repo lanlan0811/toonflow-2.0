@@ -1,4 +1,4 @@
-import knexFactory, { type Knex } from "knex";
+﻿import knexFactory, { type Knex } from "knex";
 import u from "../../src/utils";
 import ensureProductFactorySchema from "../../src/lib/productFactory/schema";
 
@@ -102,6 +102,12 @@ export async function createProductFactoryHarness() {
       if (!content) throw new Error(`测试文件不存在：${filePath}`);
       return `data:image/png;base64,${content.toString("base64")}`;
     },
+    getMediaBase64: async (filePath: string) => {
+      const content = files.get(filePath);
+      if (!content) throw new Error(`测试文件不存在：${filePath}`);
+      const mime = /\.webm$/i.test(filePath) ? "video/webm" : /\.mp4$/i.test(filePath) ? "video/mp4" : "image/png";
+      return `data:${mime};base64,${content.toString("base64")}`;
+    },
     getFile: async (filePath: string) => {
       const content = files.get(filePath);
       if (!content) throw new Error(`测试文件不存在：${filePath}`);
@@ -142,6 +148,7 @@ export async function createProductFactoryHarness() {
         }
         return { save: async (filePath: string) => { files.set(filePath, Buffer.from(`video:${calls.length}`)); } };
       },
+      save: async (filePath: string) => { files.set(filePath, Buffer.from(`video:${calls.length}`)); },
     }),
   };
   mutableU.replaceUrl = (value: string) => value;

@@ -3,6 +3,7 @@ import u from "@/utils";
 import { z } from "zod";
 import { error, success } from "@/lib/responseFormat";
 import { validateFields } from "@/middleware/middleware";
+import { registerInfiniteCanvasArtifact, requireInfiniteCanvasArtifactInputs, updateInfiniteCanvasArtifact } from "@/lib/infiniteCanvas/service";
 import axios from "axios";
 const router = express.Router();
 
@@ -25,17 +26,40 @@ export default router.post(
     ratio: z.string(),
     prompt: z.string(),
     projectId: z.number(),
+    canvasContext: z.object({
+      nodeId: z.string(),
+      inputSignature: z.string().optional(),
+      inputArtifactIds: z.array(z.number()).optional(),
+    }).optional(),
   }),
   async (req, res) => {
-    const { model, references = [], quality, ratio, prompt, projectId } = req.body;
+    const { model, references = [], quality, ratio, prompt, projectId, canvasContext } = req.body;
+    let canvasArtifact: any = null;
     try {
+      const canvasInputs = canvasContext ? await requireInfiniteCanvasArtifactInputs(projectId, canvasContext.inputArtifactIds || [], "image") : null;
+      if (canvasContext) {
+        canvasArtifact = await registerInfiniteCanvasArtifact({
+          projectId,
+          nodeId: canvasContext.nodeId,
+          origin: "generated",
+          mediaType: "image",
+          state: "generating",
+          prompt,
+          model,
+          params: { quality, ratio },
+          inputSignature: canvasContext.inputSignature || "",
+          inputArtifactIds: canvasContext.inputArtifactIds || [],
+        });
+      }
       const imageClass = await u.Ai.Image(model).run(
         {
           prompt: prompt,
           referenceList: await (async () => {
             const list: { type: "image"; base64: string }[] = [];
-            for (const url of references) {
-              list.push({ type: "image" as const, base64: await urlToBase64(url) });
+            if (canvasInputs) {
+              for (const artifact of canvasInputs) list.push({ type: "image", base64: await u.oss.getMediaBase64(artifact.filePath) });
+            } else {
+              for (const url of references) list.push({ type: "image", base64: await urlToBase64(url) });
             }
             return list;
           })(),
@@ -53,8 +77,10 @@ export default router.post(
       await imageClass.save(savePath);
 
       const url = await u.oss.getSmallImageUrl(savePath);
-      return res.status(200).send(success({ url }));
+      if (canvasArtifact) canvasArtifact = await updateInfiniteCanvasArtifact(canvasArtifact.id, { state: "success", filePath: savePath });
+      return res.status(200).send(success(canvasContext ? { url, filePath: savePath, artifact: canvasArtifact } : { url }));
     } catch (e) {
+      if (canvasArtifact?.id) await updateInfiniteCanvasArtifact(canvasArtifact.id, { state: "failed", errorReason: u.error(e).message });
       res.status(400).send(error(u.error(e).message));
     }
   },

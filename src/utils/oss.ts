@@ -75,7 +75,7 @@ class OSS {
    * @returns base64 编码的 Data URL (例如: data:image/png;base64,iVBORw0KGgo...)
    * @throws 路径不在 OSS 根目录内、文件不存在、不是图片文件等错误
    */
-  async getImageBase64(userRelPath: string): Promise<string> {
+  async getMediaBase64(userRelPath: string): Promise<string> {
     await this.ensureInit();
     const absPath = resolveSafeLocalPath(userRelPath, this.rootDir);
 
@@ -99,6 +99,7 @@ class OSS {
       ".tiff": "image/tiff",
       ".tif": "image/tiff",
       ".mp4": "video/mp4",
+      ".webm": "video/webm",
       ".mp3": "audio/mpeg",
     };
 
@@ -112,6 +113,11 @@ class OSS {
     const base64 = data.toString("base64");
     // 返回完整的 Data URL
     return `data:${mimeType};base64,${base64}`;
+  }
+
+  /** @deprecated 名称保留用于兼容；图片、视频和音频请优先使用 getMediaBase64。 */
+  async getImageBase64(userRelPath: string): Promise<string> {
+    return this.getMediaBase64(userRelPath);
   }
   /**
    * 删除指定路径的文件。

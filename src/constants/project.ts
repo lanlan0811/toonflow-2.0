@@ -3,6 +3,7 @@ export const ProjectTypes = {
   script: "script",
   storyboard: "storyboard",
   commerce: "commerce",
+  canvas: "canvas",
 } as const;
 
 export type ProjectType = (typeof ProjectTypes)[keyof typeof ProjectTypes];
@@ -12,6 +13,7 @@ export const projectTypeLabels: Record<ProjectType, string> = {
   [ProjectTypes.script]: "基于剧本",
   [ProjectTypes.storyboard]: "基于分镜表",
   [ProjectTypes.commerce]: "商品视觉工厂",
+  [ProjectTypes.canvas]: "无限画布",
 };
 
 const projectTypeAliasMap: Record<string, ProjectType> = {
@@ -32,6 +34,9 @@ const projectTypeAliasMap: Record<string, ProjectType> = {
   商品: ProjectTypes.commerce,
   商品视觉: ProjectTypes.commerce,
   商品视觉工厂: ProjectTypes.commerce,
+  canvas: ProjectTypes.canvas,
+  画布: ProjectTypes.canvas,
+  无限画布: ProjectTypes.canvas,
 };
 
 export function normalizeProjectType(projectType: string): ProjectType | null {

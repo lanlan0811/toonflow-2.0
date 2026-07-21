@@ -8,6 +8,7 @@ const router = express.Router();
 export default router.post("/", async (req, res) => {
   let query = u.db("o_project");
   if (req.body?.includeCommerce !== true) query = query.whereNot("projectType", ProjectTypes.commerce);
+  if (req.body?.includeCanvas !== true) query = query.whereNot("projectType", ProjectTypes.canvas);
   const data = await query.select("*");
   res.status(200).send(success(data));
 });
