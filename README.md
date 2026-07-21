@@ -66,10 +66,11 @@
 
 ## 项目定位
 
-这是一个面向 AI 短剧、漫剧和商品视觉内容生产的本地工作台。项目保留 Toonflow 原有的小说、剧本、资产、分镜和视频生产能力，并在此基础上补充了两条独立业务线：
+这是一个面向 AI 短剧、漫剧和商品视觉内容生产的本地工作台。项目保留 Toonflow 原有的小说、剧本、资产、分镜和视频生产能力，并在此基础上补充了三条独立业务线：
 
 1. 以分镜表为起点的 AI 短剧生产闭环。
-2. 以多 SKU 无限画布为核心的商品视觉工厂 v2。
+2. 以多 SKU 节点工作流为核心的商品视觉工厂 v2。
+3. 以素材、提示词和生成结果自由编排为核心的独立无限画布。
 
 当前版本号为 `1.1.9`。应用可作为 Electron 桌面端运行，也可以单独启动本地 HTTP 服务。业务数据、生成素材和工作流状态默认保存在本机。
 
@@ -84,6 +85,8 @@
 | `novel` | 基于小说原文 | 小说章节与事件 |
 | `script` | 基于剧本 | 单集或批量剧本 |
 | `storyboard` | 基于分镜表 | 结构化分镜表 |
+| `commerce` | 商品视觉工厂 | SKU、商品/品牌参考图与生产模板 |
+| `canvas` | 独立无限画布 | 图片、视频素材与提示词 |
 
 `storyboard` 项目拥有独立的分镜表管理入口，不再被当作普通剧本项目显示或跳转。
 
@@ -152,7 +155,7 @@
 
 工作流会按 `projectId + scriptId` 隔离不同项目与导入批次，并为每一步提供总数、已完成数、失败数、生成中数量、可执行数量和阻塞原因。已完成项不会在普通执行中重复提交；失败项可以单独重试，必要时也可以强制重新生成。
 
-### 5. 商品视觉工厂 v2（无限画布）
+### 5. 商品视觉工厂 v2（SKU 工作流画布）
 
 访问地址：
 
@@ -178,6 +181,34 @@
 工作流图使用 Graph v2（`version: 2`），节点带有稳定的 `outputKey`、`roleKey`、模型覆盖、运行参数和端口信息，连线带有 `sourcePort`/`targetPort`。工作流保存带 `revision` 和基础版本检测，布局变化与语义变化分开计算：移动、缩放、分组和便签不会使历史产物失效；模型、提示词、连线或输入变化只影响对应节点及其下游。
 
 数据保存在 `o_productFactory*` 本地表中，v1 工作流会在首次读取时幂等迁移并保留 `v1Backup`；旧模型和 Vendor 配置不会被迁移或改写。旧版 `/#/product-promo` 路由仍可进入迁移流程：系统会尝试导入旧本地画布和可定位的历史媒体，迁移可重复执行，旧本地存储不会自动删除。
+
+### 6. 独立无限画布
+
+访问地址：
+
+```text
+/#/infinite-canvas
+/#/infinite-canvas?projectId=<项目ID>
+```
+
+独立无限画布使用 `canvas` 项目类型，与普通短剧项目和 `commerce` 商品视觉工厂完全隔离。侧边栏入口先进入画布项目列表；新建项目后进入空白工作区，采用“左侧节点库 + 中央画布 + 右侧属性与历史”布局。
+
+当前版本提供以下能力：
+
+- 上传 JPG、PNG、WebP 图片和 MP4、WebM 视频；多选上传时，每个文件创建一个独立素材节点。图片单文件默认不超过 20MB，视频单文件默认不超过 64MB；
+- 使用 `material`、`image`、`video` 三类节点组织“素材 + 提示词 → 图片”“上传/生成图片 + 提示词 → 视频”和模型允许时的纯提示词生成；生成视频节点是终点；
+- 项目设置保存默认图片/视频模型、画质、比例、视频模式、分辨率、时长和音频选项；图片和视频节点可以覆盖项目默认参数，但只引用当前已启用 Vendor 的模型配置；
+- 端口根据模型模式动态显示首帧、尾帧、多图片参考和视频参考。系统阻止自连、重复边、循环和媒体类型不兼容连接；切换模型时不静默删除旧连线，而是把不兼容节点标记为“不可运行”；
+- 使用虚拟世界坐标支持负坐标、任意距离连线、四向平移、`25%–200%` 缩放、边缘自动平移、框选/多选、复制粘贴、撤销重做、适配视图、自动排版和小地图；
+- SVG 贝塞尔连线不依赖固定画布尺寸。单击连线后，曲线真实中点会显示固定屏幕尺寸的圆形 `X`，点击即可断开并写入撤销历史；
+- 每个生成节点可以单独运行。视频节点的“运行完整链路”会反向收集依赖，并按拓扑顺序补跑缺失或已经过期的上游图片节点；
+- 节点配置、连线和上游当前版本参与输入签名。输入变化后旧结果仍可预览，但会标记为过期；重新运行会创建新版本；
+- 节点只显示当前结果，右侧“版本历史”支持预览、切换当前版本、下载和删除非当前版本；切换版本会重新计算下游过期状态；
+- 视频生成沿用现有异步任务和状态接口，每 3 秒批量刷新运行中的视频；刷新页面后会从持久化任务状态恢复轮询；
+- 画布约 420ms 防抖自动保存，并显示保存中、已保存或冲突状态。工作区使用 `revision` 阻止多个窗口静默互相覆盖；
+- 删除节点只将节点和连线移出当前图，历史产物仍保留以支持撤销；永久删除画布项目需要输入项目名二次确认，并清理关联工作区、历史、任务和项目素材目录。
+
+图片生成继续复用 `/api/production/editImage/generateFlowImage`，视频生成继续复用 `/api/production/workbench/generateVideo` 和原有视频状态查询。画布只通过可选 `canvasContext`、`sources: "canvas"` 和 `artifactId` 做向后兼容扩展，不修改模型适配器、Vendor 代码或模型配置；原有短剧和商品视觉工厂请求形态保持不变。
 
 ## 保留的 Toonflow 基础能力
 
@@ -218,7 +249,7 @@
 | 图像处理 | Sharp |
 | 桌面端 | Electron 40、electron-builder |
 | 构建 | esbuild、tsx |
-| 内置前端 | 已构建 Web 资源 + TypeScript 商品视觉工厂 bundle + 原生 JavaScript/CSS 二开补丁 |
+| 内置前端 | 已构建 Web 资源 + TypeScript 商品视觉工厂/独立无限画布 bundle + 原生 JavaScript/CSS 二开补丁 |
 
 ## 目录说明
 
@@ -228,12 +259,16 @@
 │  ├─ agents/                         # ScriptAgent 与 ProductionAgent
 │  ├─ constants/                      # 项目类型和工作流步骤定义
 │  ├─ lib/                            # 数据库、资产统计和通用能力
-│  │  └─ productFactory/              # Graph、迁移、提示词、队列和导出
+│  │  ├─ productFactory/              # Graph、迁移、提示词、队列和导出
+│  │  └─ infiniteCanvas/              # 独立画布 Graph v1、表结构与产物服务
 │  ├─ routes/
 │  │  ├─ storyboardImport/            # 分镜表解析、提交和管理接口
 │  │  ├─ production/workflow/         # 生产步骤准备、进度和执行接口
-│  │  └─ productFactory/              # 商品视觉工厂 v2 API
-│  └─ web/productFactory/             # 商品视觉工厂 TypeScript 前端与画布
+│  │  ├─ productFactory/              # 商品视觉工厂 v2 API
+│  │  └─ infiniteCanvas/              # 独立无限画布项目、工作区、素材与历史 API
+│  └─ web/
+│     ├─ productFactory/              # 商品视觉工厂 TypeScript 前端与画布
+│     └─ infiniteCanvas/              # 独立无限画布 TypeScript 前端与画布控制器
 ├─ data/
 │  ├─ serve/app.js                    # 构建后的生产服务入口
 │  ├─ skills/                         # Agent 与美术风格技能文件
@@ -244,13 +279,12 @@
 ├─ scripts/                           # 构建、Electron 和打包脚本
 ├─ test/storyboardImport/             # 分镜表资产与解析回归测试
 ├─ test/productFactory/                # 商品视觉工厂 Graph、迁移、队列和 API 测试
-├─ docs/secondary-development-workflow.md
-│                                      # 二开接口说明
+├─ test/infiniteCanvas/                # 独立无限画布 Graph、修订、上传和版本测试
 ├─ .zcode/plans/                       # 已有二次开发计划记录
 └─ .codex/plans/                       # 当前协作计划记录
 ```
 
-`data/web/index.html` 是已构建前端产物，并非完整可维护的 Vue 源码。本仓库新增页面通过 `secondary-dev-patch.js`、`product-factory-studio.js` 及对应样式注入；`product-promo-studio.js` 仅用于旧版宣传片兼容。替换或重新构建 `data/web` 前，请先确认这些二开文件和入口引用不会被覆盖。
+`data/web/index.html` 是已构建前端产物，并非完整可维护的 Vue 源码。本仓库新增页面通过 `secondary-dev-patch.js`、`product-factory-studio.js`、`infinite-canvas-studio.js` 及对应样式注入；`product-promo-studio.js` 仅用于旧版宣传片兼容。替换或重新构建 `data/web` 前，请先确认这些二开文件和入口引用不会被覆盖。
 
 ## 环境准备
 
@@ -375,6 +409,19 @@ yarn start
 
 商品视觉工厂的工作流、版本和产物保存在本地 SQLite 数据库与素材目录中。清理 Electron 用户数据目录、删除项目或迁移旧版宣传片前，请先确认是否需要保留工作流和历史产物。
 
+## 使用独立无限画布
+
+1. 从主页侧边栏进入“无限画布”，在独立列表中新建或打开 `canvas` 项目。
+2. 在项目设置中选择默认图片/视频模型，以及画质、比例、视频模式、分辨率、时长和音频选项。
+3. 点击“上传素材”选择图片或视频；也可以直接创建“图片生成”和“视频生成”节点。新项目默认没有任何节点。
+4. 从来源节点右侧“输出”端口拖线到目标节点左侧端口；也可以先点击输出端口，再点击目标端口。端口名称和数量会随视频模型模式变化。
+5. 在右侧属性栏编辑提示词和节点覆盖参数。图片节点可以接收图片参考，视频节点可以按模型能力接收首帧、尾帧、多图片或视频参考。
+6. 点击节点“生成图片”或“生成视频”单独执行；需要自动补齐上游图片时，在视频节点点击“运行完整链路”。
+7. 在右侧版本历史中预览、下载或切换当前版本。删除历史前需要先切换到其他当前版本，当前版本本身不能直接删除。
+8. 使用 Space/中键平移、滚轮缩放、左键框选、`Ctrl/Cmd+C`/`V` 复制粘贴、`Delete` 删除、`Ctrl/Cmd+Z` 撤销；单击连线后点击曲线中点的圆形 `X` 断开连接。
+
+画布会自动保存，无需手动提交。若顶部显示“另一窗口已更新”，当前窗口会停止继续保存；请重新加载服务器版本后再编辑，避免覆盖其他窗口的修改。
+
 ## 常用检查
 
 ```bash
@@ -387,9 +434,13 @@ yarn test:storyboard-import
 # 商品视觉工厂 v2 回归测试
 yarn test:product-factory
 
+# 独立无限画布 Graph、修订、上传和版本回归测试
+yarn test:infinite-canvas
+
 # 二开前端脚本语法检查
 node --check data/web/secondary-dev-patch.js
 node --check data/web/product-factory-studio.js
+node --check data/web/infinite-canvas-studio.js
 node --check data/web/product-promo-studio.js
 
 # 生成生产服务和 Electron 主进程构建文件
@@ -399,7 +450,7 @@ yarn build
 git diff --check
 ```
 
-分镜表和商品视觉工厂自动化测试使用独立测试初始化，不应修改 `data/db2.sqlite` 或真实 Vendor 配置。商品视觉工厂测试覆盖 Graph v2、v1 迁移、模板差异、节点/下游任务、审核端口、重试和导出。
+分镜表、商品视觉工厂和独立无限画布自动化测试使用独立测试初始化，不应修改 `data/db2.sqlite` 或真实 Vendor 配置。商品视觉工厂测试覆盖 Graph v2、v1 迁移、模板差异、节点/下游任务、审核端口、重试和导出；独立无限画布测试覆盖 Graph v1、负坐标/超长连接、循环与重复边、修订冲突、上传校验和历史版本切换。
 
 ## 桌面端打包
 
@@ -454,23 +505,38 @@ yarn dist:linux
 | `/api/productFactory/export/create` | 导出已批准图片、成功视频和 `manifest.csv` ZIP |
 | `/api/productFactory/migration/importLegacy` | 幂等迁移旧 `product-promo` 项目及可定位的历史媒体 |
 
-请求需要先登录并携带有效 Token。接口字段、状态结构和调用示例见 [二次开发流程接口说明](./docs/secondary-development-workflow.md)。
+独立无限画布 API（全部为 `POST`）如下：
+
+| 接口 | 用途 |
+| --- | --- |
+| `/api/infiniteCanvas/projects/list`、`/create`、`/update`、`/delete` | 查询、新建、更新和永久删除 `canvas` 项目；删除要求项目名确认 |
+| `/api/infiniteCanvas/workspace/get`、`/update` | 读取或保存 InfiniteCanvasGraph v1、项目设置、内部 `scriptId` 和 `revision` |
+| `/api/infiniteCanvas/materials/upload` | 上传 JPG/PNG/WebP/MP4/WebM 素材并登记节点历史版本 |
+| `/api/infiniteCanvas/artifacts/list`、`/select`、`/delete` | 查询节点完整历史、切换当前版本和删除非当前版本 |
+| `/api/modelSelect/getModelList`、`/getModelDetail` | 复用现有模型列表与能力详情，不建立画布专用模型配置 |
+| `/api/production/editImage/generateFlowImage` | 复用图片生成；画布请求可附带 `canvasContext` 登记产物与输入签名 |
+| `/api/production/workbench/generateVideo` | 复用视频生成；画布引用使用 `{ sources: "canvas", artifactId }` |
+| `/api/production/workbench/checkVideoStateList` | 批量查询运行中的画布视频任务，刷新后可继续轮询 |
+
+请求需要先登录并携带有效 Token。
 
 ## 数据与升级注意事项
 
 - `data/db2.sqlite` 保存本地业务数据，调试和测试前请先备份。
 - `data/oss` 保存图片、视频和缩略图等生成素材。
 - 商品视觉工厂的 SKU、参考图、Graph v2、任务和产物保存在 `o_productFactoryConfig`、`o_productFactoryItem`、`o_productFactoryReference`、`o_productFactoryWorkflow`、`o_productFactoryJob` 和 `o_productFactoryArtifact` 表中。
+- 独立无限画布的 Graph v1、项目默认参数、内部 `scriptId` 和修订号保存在 `o_infiniteCanvasWorkspace`；上传/生成来源、媒体类型、版本、当前版本、文件路径、`videoId`、输入签名和错误信息保存在 `o_infiniteCanvasArtifact`。
 - Electron 安装版会把运行数据复制到应用用户数据目录，源码目录不一定是实际数据目录。
 - 不要手工编辑 `data/serve/app.js`；它应由 `yarn build` 从 TypeScript 源码生成。
 - 不要把 API Key、Token、真实数据库或生成素材提交到公开仓库。
-- 更新内置前端时应重新验证分镜表页面、`/#/product-factory` 路由、旧 `/#/product-promo` 迁移、侧边栏入口和 Electron `file://` 模式。
+- 更新内置前端时应重新验证分镜表页面、`/#/product-factory`、`/#/infinite-canvas` 路由、旧 `/#/product-promo` 迁移、侧边栏入口和 Electron `file://` 模式。
 - 模型供应商对参考图数量、时长、分辨率和音频参数的支持不同，提交前会按模型详情进行校验。
 
 ## 当前边界
 
 - 内置 Web 前端是构建产物，注入式二开对原页面 DOM 和路由结构存在依赖。
 - 商品视觉工厂 v2 面向本地单用户生产，当前以节点生成图片和单条视频资产为主，不负责多片段剪辑、字幕合成或独立音轨混音。
+- 独立无限画布第一版不提供音频素材节点、视频剪辑/拼接、字幕、分组便签或多人实时协作，也不会迁移旧产品宣传片和商品视觉工厂数据。
 - 旧版 `product-promo` 画布只作为迁移入口；迁移依赖旧本地存储或仍可定位的历史媒体，无法定位的原始文件不会被凭空恢复。
 - AI 生成结果受模型、提示词、服务可用性和供应商限制影响，不能保证每次输出一致。
 - 本项目默认以本地单机工作流为主，不等同于多租户生产平台。
